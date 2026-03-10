@@ -1,0 +1,23 @@
+[package]
+name = "mirae-workbook"
+version = "1.0.0"
+description = "미래에셋생명 Claude Code 문서자동화 워크북"
+authors = ["미래에셋생명"]
+edition = "2021"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+dirs = "5"
+portable-pty = "0.8"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"       # 바이너리 크기 최소화
+strip = true
