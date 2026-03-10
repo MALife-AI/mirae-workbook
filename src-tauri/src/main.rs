@@ -76,12 +76,21 @@ fn pty_spawn(
         .map_err(|e| format!("PTY 생성 실패: {}", e))?;
 
     let shell_path = if shell.is_empty() {
-        std::env::var("SHELL").unwrap_or_else(|_| {
-            #[cfg(target_os = "windows")]
-            { "cmd.exe".to_string() }
-            #[cfg(not(target_os = "windows"))]
-            { "/bin/zsh".to_string() }
-        })
+        #[cfg(target_os = "windows")]
+        {
+            // Windows: PowerShell 우선, 없으면 cmd.exe
+            std::env::var("COMSPEC").unwrap_or_else(|_| {
+                if std::path::Path::new("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe").exists() {
+                    "powershell.exe".to_string()
+                } else {
+                    "cmd.exe".to_string()
+                }
+            })
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string())
+        }
     } else {
         shell
     };
@@ -90,13 +99,25 @@ fn pty_spawn(
     cmd.cwd(project_dir());
 
     // 환경변수 설정 — PATH에 cargo, npm 경로 포함
-    if let Ok(path) = std::env::var("PATH") {
-        let home = std::env::var("HOME").unwrap_or_default();
-        let extra = format!("{}/.cargo/bin:{}/.nvm/versions/node/*/bin:/usr/local/bin", home, home);
-        cmd.env("PATH", format!("{}:{}", extra, path));
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(path) = std::env::var("PATH") {
+            let home = std::env::var("USERPROFILE").unwrap_or_default();
+            let extra = format!("{}\\.cargo\\bin;{}\\AppData\\Roaming\\npm", home, home);
+            cmd.env("PATH", format!("{};{}", extra, path));
+        }
+        cmd.env("TERM", "xterm-256color");
     }
-    cmd.env("TERM", "xterm-256color");
-    cmd.env("LANG", "ko_KR.UTF-8");
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(path) = std::env::var("PATH") {
+            let home = std::env::var("HOME").unwrap_or_default();
+            let extra = format!("{}/.cargo/bin:{}/.nvm/versions/node/*/bin:/usr/local/bin", home, home);
+            cmd.env("PATH", format!("{}:{}", extra, path));
+        }
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("LANG", "ko_KR.UTF-8");
+    }
     // Claude Code 중첩 세션 방지 — 환경변수 제거
     cmd.env_remove("CLAUDECODE");
 

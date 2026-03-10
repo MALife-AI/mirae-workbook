@@ -125,7 +125,9 @@ export default function NativeTerminal({ style }) {
         };
       } catch (e) {
         if (!cancelled) {
-          setError(e.message || "터미널 초기화 실패");
+          const msg = typeof e === "string" ? e : e.message || JSON.stringify(e);
+          console.error("터미널 초기화 오류:", e);
+          setError(msg || "터미널 초기화 실패");
         }
       }
     }
@@ -153,9 +155,25 @@ export default function NativeTerminal({ style }) {
         ...style,
       }}>
         터미널 오류: {error}
-        <br />
-        <span style={{ color: "#8DA0B8", fontSize: 12 }}>
-          Tauri 앱에서만 실제 터미널을 사용할 수 있습니다.
+        <br /><br />
+        <span style={{ color: "#8DA0B8", fontSize: 12, lineHeight: 1.8 }}>
+          {error.includes("pty_spawn") || error.includes("PTY") || error.includes("ConPTY") ? (
+            <>
+              Windows ConPTY 초기화에 실패했습니다.<br />
+              • Windows 10 버전 1809 이상이 필요합니다<br />
+              • 설정 → 앱 → 선택적 기능 → "Windows 콘솔 호스트" 확인<br />
+            </>
+          ) : error.includes("invoke") || error.includes("not a function") || error.includes("__TAURI") ? (
+            <>
+              Tauri 런타임이 감지되지 않습니다.<br />
+              • <code>npx tauri dev</code> 또는 빌드된 앱으로 실행해주세요<br />
+            </>
+          ) : (
+            <>
+              터미널 초기화에 실패했습니다.<br />
+              • 앱을 재시작해보세요<br />
+            </>
+          )}
         </span>
       </div>
     );
