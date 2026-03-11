@@ -509,7 +509,7 @@ function Ch({ id }) {
       {[
         { icon: "💬", name: "프롬프트 (Prompt)", desc: "Claude에게 내리는 명령. 자연어로 작성하며, 구체적일수록 결과가 좋음", ex: "\"2025 퇴직연금 시장 현황 보고서를 미래에셋 템플릿으로 만들어줘\"", color: M.ac },
         { icon: "📋", name: "CLAUDE.md", desc: "프로젝트 규칙서. Claude Code 시작 시 자동으로 읽혀서 매번 규칙을 반복 지시할 필요 없음", ex: "\"브랜드 색상 #F58220 사용\", \"개인정보 금지\", \"출처 명시\"", color: M.or },
-        { icon: "🎯", name: "Skill (스킬)", desc: "특정 작업의 가이드라인. Claude가 상황을 판단해 자동으로 참고함 (제안 방식)", ex: "report-writer Skill → 보고서 6섹션 구조로 자동 작성", color: "#059669" },
+        { icon: "🎯", name: "Skill (스킬)", desc: "업무 매뉴얼. \"보고서는 이렇게 써\"를 알려주면 Claude가 매번 같은 품질로 작업", ex: "\"퇴직연금 보고서 써줘\" → 항상 6섹션 구조 + 미래에셋 스타일 표 + 출처 각주", color: "#059669" },
         { icon: "⚡", name: "Hook (훅)", desc: "이벤트 발생 시 강제 실행되는 안전장치. 예외 없이 100% 동작", ex: "파일 쓰기 시 개인정보 검사 → 위반 시 즉시 차단", color: "#fbbf24" },
         { icon: "🔌", name: "MCP (외부 연결)", desc: "Claude Code에 외부 서비스를 연결하는 어댑터. 웹 검색, Slack, DB 등", ex: "web-search MCP → 실시간 웹 리서치 가능", color: M.blM },
       ].map(c => (
@@ -1009,15 +1009,37 @@ description: "주제에 대해 웹 리서치할 때 사용"
     <p style={S.p}>리서치 데이터가 준비되면, Claude Code가 <strong style={{ color: M.or }}>문서 구조에 맞게 내용을 자동 작성</strong>합니다. 보고서와 PPT의 구조가 다르므로, 각각 다른 Skill이 동작합니다.</p>
 
     <h3 style={S.h3}>Skill(스킬)이란?</h3>
-    <p style={S.p}>Skill은 Claude Code에게 <strong style={{ color: M.or }}>"이런 작업은 이렇게 해"</strong>라고 알려주는 가이드라인 파일입니다.</p>
+    <p style={S.p}>Skill은 쉽게 말해 <strong style={{ color: M.or }}>"업무 매뉴얼"</strong>입니다. 신입사원에게 "우리 팀은 보고서를 이런 양식으로 써"라고 알려주듯이, Claude에게도 같은 방식으로 작업 규칙을 알려주는 파일입니다.</p>
+
+    <div style={{ background: M.bg2, borderRadius: 12, padding: 20, margin: "16px 0", border: `1px solid ${M.bd}` }}>
+      <div style={{ fontWeight: 800, color: M.or, fontSize: 15, marginBottom: 16 }}>비유: 신입사원에게 업무 인수인계하기</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+        {[
+          { emoji: "🙋", before: "\"보고서 만들어주세요\"", after: "매번 다른 형식으로 올라옴, 수정에 수정...", color: "#fca5a5" },
+          { emoji: "📋", before: "\"이 매뉴얼대로 보고서 만들어주세요\"", after: "항상 같은 6섹션 구조, 미래에셋 스타일 적용!", color: "#86efac" },
+        ].map((r, i) => (
+          <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+            <span style={{ fontSize: 24 }}>{r.emoji}</span>
+            <div>
+              <div style={{ color: M.tx, fontSize: 13, fontWeight: 700 }}>{r.before}</div>
+              <div style={{ color: r.color, fontSize: 12, marginTop: 2 }}>→ {r.after}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      <div style={{ marginTop: 16, padding: "10px 14px", background: M.bg3, borderRadius: 8, fontSize: 13, color: M.or, fontWeight: 600 }}>
+        Skill = Claude에게 주는 "업무 매뉴얼". 한 번 만들면 매번 같은 품질로 일해줍니다.
+      </div>
+    </div>
+
     <div style={{ background: M.bg2, borderRadius: 12, padding: 20, margin: "16px 0", border: `1px solid ${M.bd}` }}>
       <div style={{ fontWeight: 800, color: M.or, fontSize: 15, marginBottom: 12 }}>Skill의 동작 원리</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
         {[
-          { n: "1", t: "저장 위치", d: ".claude/skills/[이름]/SKILL.md 파일로 저장", color: M.ac },
-          { n: "2", t: "자동 감지", d: "description 필드를 보고 Claude가 관련 작업인지 판단", color: M.or },
-          { n: "3", t: "제안 방식", d: "\"이 Skill을 참고하겠습니다\"라고 알린 후 가이드라인 적용", color: "#059669" },
-          { n: "4", t: "강제 아님", d: "Hook과 달리 상황에 맞지 않으면 무시할 수 있음", color: "#fbbf24" },
+          { n: "1", t: "저장 위치", d: ".claude/skills/[이름]/SKILL.md 파일로 저장 (코드 몰라도 됩니다!)", color: M.ac },
+          { n: "2", t: "자동 감지", d: "\"보고서 만들어줘\"라고 하면 Claude가 알아서 관련 Skill을 찾아 적용", color: M.or },
+          { n: "3", t: "제안 방식", d: "\"이 Skill을 참고하겠습니다\"라고 알린 후 가이드라인대로 작업", color: "#059669" },
+          { n: "4", t: "강제 아님", d: "Hook(안전장치)과 달리, 상황에 맞지 않으면 무시할 수 있음", color: "#fbbf24" },
         ].map(s => (
           <div key={s.n} style={{ display: "flex", alignItems: "center", gap: 12 }}>
             <div style={{ width: 24, height: 24, borderRadius: "50%", background: s.color, color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{s.n}</div>
@@ -1026,24 +1048,62 @@ description: "주제에 대해 웹 리서치할 때 사용"
         ))}
       </div>
     </div>
+
+    <h3 style={S.h3}>보험 실무에서 바로 쓰는 Skill 예시</h3>
+    <p style={S.p}>아래는 보험회사 실무에서 바로 활용할 수 있는 Skill들입니다. <strong style={{ color: M.or }}>어떤 상황에서 어떻게 작동하는지</strong> 비교해보세요.</p>
+
+    <div style={{ display: "flex", flexDirection: "column", gap: 12, margin: "16px 0" }}>
+      {[
+        { icon: "📊", name: "보고서 Skill", situation: "\"퇴직연금 시장현황 보고서 써줘\"", without: "목차도 없이 장문의 텍스트 덩어리, 출처 누락, 매번 구조가 다름", withSkill: "표지 → 요약 → 현황 → 심층분석 → 시사점 → 제언 6섹션, 출처 각주 포함, 미래에셋 스타일 표", color: M.or },
+        { icon: "📑", name: "PPT Skill", situation: "\"변액보험 트렌드 PPT 만들어줘\"", without: "글자만 가득한 10장짜리, 차트 없음, 디자인 제각각", withSkill: "슬라이드당 메시지 1개, 데이터 차트 포함, 맑은 고딕 + 미래에셋 컬러, 8장 구성", color: M.ac },
+        { icon: "🔍", name: "리서치 Skill", situation: "\"건강보험 시장 조사해줘\"", without: "출처 불명확한 정보, 오래된 데이터 혼재, 정리 안 됨", withSkill: "금감원·보험연구원 등 신뢰 소스 우선, 최신 수치 + 출처 URL 포함, 트렌드 3~5개 정리", color: "#059669" },
+      ].map(s => (
+        <div key={s.name} style={{ background: M.bg2, borderRadius: 12, padding: 20, border: `1px solid ${M.bd}`, borderLeft: `3px solid ${s.color}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 22 }}>{s.icon}</span>
+            <span style={{ fontWeight: 800, color: s.color, fontSize: 15 }}>{s.name}</span>
+          </div>
+          <div style={{ background: M.bg3, borderRadius: 8, padding: "8px 12px", fontSize: 13, color: M.or, marginBottom: 10, fontFamily: "monospace" }}>
+            상황: {s.situation}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <div style={{ fontSize: 13 }}>
+              <span style={{ color: "#fca5a5", fontWeight: 700 }}>Skill 없이:</span>
+              <span style={{ color: M.tx2, marginLeft: 6 }}>{s.without}</span>
+            </div>
+            <div style={{ fontSize: 13 }}>
+              <span style={{ color: "#86efac", fontWeight: 700 }}>Skill 있으면:</span>
+              <span style={{ color: M.tx2, marginLeft: 6 }}>{s.withSkill}</span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <Tip type="key">
+      <strong>Skill = 한 번 만들면, 누가 요청해도 같은 품질</strong><br/>
+      팀에서 보고서 양식을 공유하듯, Skill 파일만 공유하면 모든 팀원이 동일한 품질의 결과물을 받을 수 있습니다.
+    </Tip>
+
+    <h3 style={S.h3}>Skill 파일은 이렇게 생겼습니다</h3>
+    <p style={S.p}>특별한 프로그래밍 지식이 필요 없습니다. 그냥 <strong style={{ color: M.or }}>한글로 규칙을 쓰면</strong> 됩니다.</p>
     <Ref title="SKILL.md 파일 구조 (필수 형식)">{`---
-description: "이 Skill이 언제 사용되는지 설명 (Claude가 이 설명을 보고 판단)"
+description: "이 Skill이 언제 사용되는지 한 줄로 설명"
 ---
+           ↑ Claude가 이 설명을 보고 "지금 이 Skill을 쓸지" 판단합니다
 
 # Skill 제목
 
-## 가이드라인 내용
-- Claude가 따를 규칙들
-- 문서 구조, 작성 방식, 스타일 등
-
-## 예시
-- 좋은 예시와 나쁜 예시를 포함하면 품질 향상`}</Ref>
+## 규칙들
+- 여기에 한글로 규칙을 씁니다
+- "보고서는 6섹션으로 작성해" 같은 방식으로
+- 코드가 아니라 그냥 한국어 문장입니다`}</Ref>
     <Tip type="key">
-      <strong>description이 가장 중요합니다!</strong> Claude는 이 설명을 보고 "지금 요청이 이 Skill과 관련있는가?"를 판단합니다. 명확하게 작성하세요.<br/>
+      <strong>description 한 줄이 가장 중요합니다!</strong> Claude는 이 설명을 보고 "지금 요청이 이 Skill과 관련있는가?"를 판단합니다.<br/>
       예: ✅ "보고서(docx) 작성 요청 시 사용" &nbsp; ❌ "문서 관련 스킬"
     </Tip>
 
-    <h3 style={S.h3}>보고서(docx) 콘텐츠 구조</h3>
+    <h3 style={S.h3}>실전 Skill #1: 보고서 작성</h3>
     <Code name=".claude/skills/report-writer/SKILL.md" filePath=".claude/skills/report-writer/SKILL.md" code={`---
 description: "보고서(docx) 작성 요청 시 사용"
 ---
@@ -1074,7 +1134,7 @@ description: "보고서(docx) 작성 요청 시 사용"
 - 표는 미래에셋 스타일 (오렌지 헤더)
 - 개인정보 절대 포함 금지`} />
 
-    <h3 style={S.h3}>PPT(pptx) 콘텐츠 구조</h3>
+    <h3 style={S.h3}>실전 Skill #2: PPT 생성</h3>
     <Code name=".claude/skills/pptx-generator/SKILL.md" filePath=".claude/skills/pptx-generator/SKILL.md" code={`---
 description: "PPT(pptx) 생성 요청 시 사용"
 ---
@@ -1097,10 +1157,33 @@ description: "PPT(pptx) 생성 요청 시 사용"
 - 미래에셋 색상 팔레트 사용
 - 폰트: 맑은 고딕 (제목 24pt / 본문 16pt)`} />
 
+    <h3 style={S.h3}>보험 실무에 이런 Skill도 만들 수 있습니다</h3>
+    <p style={S.p}>아래는 보험사 각 부서에서 활용 가능한 Skill 아이디어입니다. description만 바꿔서 여러분 업무에 맞는 Skill을 만들어보세요.</p>
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, margin: "16px 0" }}>
+      {[
+        { dept: "상품개발", desc: "신상품 기획서 작성 요청 시 사용", example: "\"변액보험 신상품 기획서 만들어줘\" → 타겟 고객 → 보장내용 → 예정이율 → 수익성 분석 → 인허가 체크리스트 순서로 자동 작성", color: M.or },
+        { dept: "언더라이팅", desc: "청약서 심사 체크리스트 작성 시 사용", example: "\"고혈압 기왕력 고객 심사 기준 정리해줘\" → 혈압 수치별 등급 → 추가 필요 서류 → 할증/거절 기준 → 참고 판례 순서로 정리", color: M.ac },
+        { dept: "보상/지급", desc: "보험금 심사 분석 보고서 작성 시 사용", example: "\"입원비 다빈도 청구 패턴 분석해줘\" → 청구 유형별 통계 → 이상치 탐지 기준 → 심사 포인트 → 유의사항 순서로 보고서 작성", color: "#059669" },
+        { dept: "영업지원", desc: "고객 제안서 작성 요청 시 사용", example: "\"50대 자산가 고객 종합 제안서 만들어줘\" → 고객 니즈 분석 → 추천 포트폴리오 → 세제혜택 → 경쟁사 비교 순서로 제안서 구성", color: "#fbbf24" },
+        { dept: "리스크관리", desc: "리스크 평가 보고서 작성 시 사용", example: "\"금리 하락 시나리오 리스크 분석해줘\" → 시나리오 정의 → 영향도 분석 → 스트레스 테스트 → 대응방안 → 모니터링 지표 순서로 보고", color: "#c084fc" },
+      ].map(s => (
+        <div key={s.dept} style={{ background: M.bg2, borderRadius: 10, padding: "14px 16px", border: `1px solid ${M.bd}`, borderLeft: `3px solid ${s.color}` }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+            <span style={{ background: s.color + "22", color: s.color, fontSize: 11, fontWeight: 700, padding: "2px 10px", borderRadius: 10 }}>{s.dept}</span>
+            <span style={{ color: M.tx2, fontSize: 11, fontFamily: "monospace" }}>description: "{s.desc}"</span>
+          </div>
+          <div style={{ color: M.tx2, fontSize: 12, lineHeight: 1.6 }}>{s.example}</div>
+        </div>
+      ))}
+    </div>
+    <Tip type="try">
+      위 예시 중 <strong>여러분 부서와 가장 가까운 것</strong>을 골라, description과 규칙을 수정해서 나만의 Skill을 만들어보세요!
+    </Tip>
+
     <h3 style={S.h3}>리서치 → 콘텐츠 매핑 과정</h3>
     <p style={S.p}>Claude Code가 리서치 결과를 문서 구조의 각 섹션에 자동으로 배치합니다:</p>
     <div style={{ background: M.bg2, borderRadius: 12, padding: 20, margin: "16px 0", border: `1px solid ${M.bd}`, fontFamily: "monospace", fontSize: 12, color: M.tx2, lineHeight: 2 }}>
-      <div style={{ color: M.or, fontWeight: 700, marginBottom: 8 }}>📋 매핑 예시: "퇴직연금 시장 현황"</div>
+      <div style={{ color: M.or, fontWeight: 700, marginBottom: 8 }}>매핑 예시: "퇴직연금 시장 현황"</div>
       <div>리서치: 적립금 382조원 → <span style={{ color: "#86efac" }}>보고서 §3 현황분석 / PPT Slide 3</span></div>
       <div>리서치: DC형 비중 증가 → <span style={{ color: "#86efac" }}>보고서 §4 트렌드 / PPT Slide 4</span></div>
       <div>리서치: 디폴트옵션 68.4% → <span style={{ color: "#86efac" }}>보고서 §4 트렌드 / PPT Slide 5 (차트)</span></div>
@@ -1116,8 +1199,11 @@ description: "PPT(pptx) 생성 요청 시 사용"
     <p style={{ color: M.tx3, fontSize: 12, margin: "8px 0" }}>3. Skill이 잘 동작하는지 테스트:</p>
     <Cmd cmd="2025 보험시장 동향 보고서 만들어줘" desc="대화형 입력 >" />
     <p style={{ color: M.tx3, fontSize: 12, margin: "4px 0 0" }}>→ Claude가 "report-writer Skill을 참고합니다"라고 표시되면 성공!</p>
-    <Ref title="Skill 유무 차이">{`Skill 없이: 구조가 일정하지 않고 매번 다른 형식
-Skill 있을 때: 항상 6섹션 구조, 미래에셋 스타일 적용`}</Ref>
+    <Ref title="Skill 유무 차이">{`Skill 없이: "퇴직연금 보고서 써줘" → 목차 없는 장문 텍스트, 매번 형식 다름
+Skill 있으면: 같은 요청 → 항상 6섹션 구조, 오렌지 헤더 표, 출처 각주 포함
+
+마치 팀의 보고서 양식을 공유하는 것과 같습니다.
+누가 요청하든 동일한 품질, 동일한 형식.`}</Ref>
 
     <Tip type="try">위 SKILL.md 코드블록의 <strong>"파일 생성"</strong> 버튼을 클릭한 후, 터미널에서 보고서 작성을 요청해보세요!</Tip>
   </>);
