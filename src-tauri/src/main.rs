@@ -12,23 +12,86 @@ use std::sync::{Arc, Mutex, atomic::{AtomicU32, AtomicBool, Ordering}};
 use std::thread;
 
 use portable_pty::{CommandBuilder, PtySize, native_pty_system};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 use serde::Serialize;
 
+/// GUI 앱에서도 node/npm/claude 등을 찾을 수 있도록 확장된 PATH 반환
+fn expanded_path() -> String {
+    let base = std::env::var("PATH").unwrap_or_default();
+
+    #[cfg(target_os = "windows")]
+    {
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let extra = format!("{}\\.cargo\\bin;{}\\AppData\\Roaming\\npm", home, home);
+        format!("{};{}", extra, base)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let home = std::env::var("HOME").unwrap_or_default();
+        // nvm, homebrew, cargo, volta, fnm 등 주요 경로 포함
+        let candidates = [
+            format!("{}/.nvm/versions/node", home),
+        ];
+        // nvm: 가장 최신 버전의 bin 디렉토리 찾기
+        let mut nvm_bin = String::new();
+        for base_dir in &candidates {
+            if let Ok(entries) = fs::read_dir(base_dir) {
+                let mut versions: Vec<_> = entries
+                    .filter_map(|e| e.ok())
+                    .filter(|e| e.path().join("bin").exists())
+                    .map(|e| e.path())
+                    .collect();
+                versions.sort();
+                if let Some(latest) = versions.last() {
+                    nvm_bin = latest.join("bin").to_string_lossy().to_string();
+                }
+            }
+        }
+        let extra = format!(
+            "{}:{}/.cargo/bin:{}/Library/Application Support/fnm/aliases/default/bin:/opt/homebrew/bin:/usr/local/bin",
+            nvm_bin, home, home
+        );
+        format!("{}:{}", extra, base)
+    }
+}
+
+/// Command에 확장된 PATH를 설정
+fn command_with_path(program: &str) -> Command {
+    let mut cmd = Command::new(program);
+    cmd.env("PATH", expanded_path());
+    cmd
+}
+
 // ─── 프로젝트 디렉토리 ───
+fn project_dir_config_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("mirae-workbook")
+        .join(".project_dir")
+}
+
 fn project_dir() -> PathBuf {
+    // 사용자가 지정한 폴더가 있으면 그것을 사용
+    if let Ok(custom) = fs::read_to_string(project_dir_config_path()) {
+        let custom = custom.trim().to_string();
+        if !custom.is_empty() {
+            let p = PathBuf::from(&custom);
+            if p.exists() {
+                fs::create_dir_all(p.join("templates")).ok();
+                fs::create_dir_all(p.join("outputs")).ok();
+                return p;
+            }
+        }
+    }
+    // 기본 경로
     let dir = dirs::data_dir()
         .unwrap_or_else(|| PathBuf::from("."))
         .join("mirae-workbook")
         .join("doc-automation");
     fs::create_dir_all(&dir).ok();
     fs::create_dir_all(dir.join("templates")).ok();
-    fs::create_dir_all(dir.join("output")).ok();
-    fs::create_dir_all(dir.join(".claude/skills/report-writer")).ok();
-    fs::create_dir_all(dir.join(".claude/skills/pptx-generator")).ok();
-    fs::create_dir_all(dir.join(".claude/skills/web-researcher")).ok();
-    fs::create_dir_all(dir.join(".claude/hooks")).ok();
-    fs::create_dir_all(dir.join(".claude/commands")).ok();
+    fs::create_dir_all(dir.join("outputs")).ok();
     dir
 }
 
@@ -121,6 +184,13 @@ fn pty_spawn(
     // Claude Code 중첩 세션 방지 — 환경변수 제거
     cmd.env_remove("CLAUDECODE");
 
+    // 저장된 API 키가 있으면 PTY에 주입
+    if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
+        if !key.is_empty() {
+            cmd.env("ANTHROPIC_API_KEY", &key);
+        }
+    }
+
     let child = pair.slave
         .spawn_command(cmd)
         .map_err(|e| format!("셸 실행 실패: {}", e))?;
@@ -138,18 +208,36 @@ fn pty_spawn(
     let alive_clone = alive.clone();
 
     // 백그라운드 스레드: PTY 출력 → Tauri 이벤트
+    // 한글(UTF-8 3바이트)이 read 경계에서 잘리지 않도록 잔여 바이트를 버퍼링
     let app_clone = app.clone();
     thread::spawn(move || {
         let mut buf = [0u8; 4096];
+        let mut pending = Vec::<u8>::new(); // 불완전한 UTF-8 바이트 보관
         loop {
             match reader.read(&mut buf) {
                 Ok(0) => break,
                 Ok(n) => {
-                    let data = String::from_utf8_lossy(&buf[..n]).to_string();
-                    let _ = app_clone.emit("pty_output", PtyOutput {
-                        session_id,
-                        data,
-                    });
+                    pending.extend_from_slice(&buf[..n]);
+                    // 끝에서부터 불완전한 UTF-8 시퀀스 길이를 구한다
+                    let valid_up_to = match std::str::from_utf8(&pending) {
+                        Ok(_) => pending.len(),
+                        Err(e) => e.valid_up_to(),
+                    };
+                    if valid_up_to > 0 {
+                        let data = String::from_utf8_lossy(&pending[..valid_up_to]).to_string();
+                        let _ = app_clone.emit("pty_output", PtyOutput {
+                            session_id,
+                            data,
+                        });
+                    }
+                    // 남은 불완전 바이트를 다음 read에 이어붙이기
+                    if valid_up_to < pending.len() {
+                        let leftover = pending[valid_up_to..].to_vec();
+                        pending.clear();
+                        pending.extend_from_slice(&leftover);
+                    } else {
+                        pending.clear();
+                    }
                 }
                 Err(_) => break,
             }
@@ -236,13 +324,13 @@ fn run_shell(command: String) -> Result<String, String> {
     let dir = project_dir();
 
     #[cfg(target_os = "windows")]
-    let output = Command::new("cmd")
+    let output = command_with_path("cmd")
         .args(["/C", &command])
         .current_dir(&dir)
         .output();
 
     #[cfg(not(target_os = "windows"))]
-    let output = Command::new("sh")
+    let output = command_with_path("sh")
         .args(["-c", &command])
         .current_dir(&dir)
         .output();
@@ -262,10 +350,44 @@ fn run_shell(command: String) -> Result<String, String> {
 }
 
 #[tauri::command]
+fn start_claude_login() -> Result<String, String> {
+    // claude login을 백그라운드로 스폰 (브라우저가 열림)
+    let result = command_with_path("sh")
+        .args(["-c", "claude login &"])
+        .spawn();
+
+    match result {
+        Ok(_) => Ok("로그인 프로세스 시작됨".to_string()),
+        Err(e) => Err(format!("claude login 실행 실패: {}", e)),
+    }
+}
+
+#[tauri::command]
+fn check_auth_status() -> Result<String, String> {
+    let output = command_with_path("claude")
+        .args(["auth", "status"])
+        .output();
+
+    match output {
+        Ok(out) => {
+            let stdout = String::from_utf8_lossy(&out.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&out.stderr).to_string();
+            let combined = format!("{}{}", stdout, stderr);
+            if combined.contains("\"loggedIn\": true") || combined.contains("\"loggedIn\":true") || combined.contains("Authenticated") {
+                Ok("authenticated".to_string())
+            } else {
+                Err(format!("미인증: {}", combined))
+            }
+        }
+        Err(e) => Err(format!("상태 확인 실패: {}", e)),
+    }
+}
+
+#[tauri::command]
 fn run_claude(prompt: String) -> Result<String, String> {
     let dir = project_dir();
 
-    let output = Command::new("claude")
+    let output = command_with_path("claude")
         .args(["-p", &prompt])
         .current_dir(&dir)
         .output();
@@ -285,7 +407,7 @@ fn run_claude(prompt: String) -> Result<String, String> {
 
 #[tauri::command]
 fn list_output() -> Result<Vec<String>, String> {
-    let dir = project_dir().join("output");
+    let dir = project_dir().join("outputs");
     match fs::read_dir(&dir) {
         Ok(entries) => {
             let files: Vec<String> = entries
@@ -300,7 +422,7 @@ fn list_output() -> Result<Vec<String>, String> {
 
 #[tauri::command]
 fn open_file(filename: String) -> Result<(), String> {
-    let path = project_dir().join("output").join(&filename);
+    let path = project_dir().join("outputs").join(&filename);
     if !path.exists() {
         return Err(format!("파일을 찾을 수 없습니다: {}", filename));
     }
@@ -317,9 +439,101 @@ fn open_file(filename: String) -> Result<(), String> {
     Ok(())
 }
 
+/// 파일을 HTML로 변환하여 미리보기 (macOS: textutil 사용)
+#[tauri::command]
+fn preview_file(filename: String) -> Result<String, String> {
+    let path = project_dir().join("outputs").join(&filename);
+    if !path.exists() {
+        return Err(format!("파일을 찾을 수 없습니다: {}", filename));
+    }
+
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("").to_lowercase();
+
+    match ext.as_str() {
+        "html" | "htm" => {
+            fs::read_to_string(&path).map_err(|e| format!("읽기 실패: {}", e))
+        }
+        "docx" | "doc" | "rtf" => {
+            // macOS textutil로 HTML 변환
+            let output = Command::new("textutil")
+                .args(["-convert", "html", "-stdout"])
+                .arg(&path)
+                .output()
+                .map_err(|e| format!("textutil 실행 실패: {}", e))?;
+            if output.status.success() {
+                let html = String::from_utf8_lossy(&output.stdout).to_string();
+                // 기본 스타일 추가
+                Ok(format!(
+                    "<html><head><meta charset='utf-8'><style>body{{font-family:-apple-system,sans-serif;padding:20px;max-width:800px;margin:0 auto;line-height:1.6;color:#333}}table{{border-collapse:collapse;width:100%}}td,th{{border:1px solid #ddd;padding:8px}}</style></head><body>{}</body></html>",
+                    html
+                ))
+            } else {
+                let err = String::from_utf8_lossy(&output.stderr).to_string();
+                Err(format!("변환 실패: {}", err))
+            }
+        }
+        "pptx" | "ppt" => {
+            // pptx → Quick Look으로 썸네일 이미지 생성
+            let tmp_dir = std::env::temp_dir().join("mirae-preview");
+            fs::create_dir_all(&tmp_dir).ok();
+            let output = Command::new("qlmanage")
+                .args(["-t", "-s", "1200", "-o"])
+                .arg(&tmp_dir)
+                .arg(&path)
+                .output()
+                .map_err(|e| format!("qlmanage 실행 실패: {}", e))?;
+            if output.status.success() {
+                // 생성된 PNG 파일 찾기
+                let png_name = format!("{}.png", filename);
+                let png_path = tmp_dir.join(&png_name);
+                if png_path.exists() {
+                    let bytes = fs::read(&png_path).map_err(|e| format!("이미지 읽기 실패: {}", e))?;
+                    let b64 = base64_encode(&bytes);
+                    fs::remove_file(&png_path).ok();
+                    Ok(format!(
+                        "<html><head><style>body{{margin:0;display:flex;justify-content:center;align-items:center;min-height:100vh;background:#1a1a2e}}img{{max-width:100%;max-height:100vh;box-shadow:0 4px 20px rgba(0,0,0,0.5)}}</style></head><body><img src='data:image/png;base64,{}'></body></html>",
+                        b64
+                    ))
+                } else {
+                    Err("썸네일 생성 실패".to_string())
+                }
+            } else {
+                Err("qlmanage 실행 실패".to_string())
+            }
+        }
+        "txt" | "md" | "json" | "csv" => {
+            let content = fs::read_to_string(&path).map_err(|e| format!("읽기 실패: {}", e))?;
+            let escaped = content.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;");
+            Ok(format!(
+                "<html><head><meta charset='utf-8'><style>body{{font-family:'JetBrains Mono',monospace;padding:20px;background:#021018;color:#E5E8EC;white-space:pre-wrap;font-size:13px;line-height:1.6}}</style></head><body>{}</body></html>",
+                escaped
+            ))
+        }
+        _ => {
+            Err(format!("미리보기를 지원하지 않는 형식입니다: .{}", ext))
+        }
+    }
+}
+
+fn base64_encode(data: &[u8]) -> String {
+    const CHARS: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut result = String::with_capacity((data.len() + 2) / 3 * 4);
+    for chunk in data.chunks(3) {
+        let b0 = chunk[0] as u32;
+        let b1 = if chunk.len() > 1 { chunk[1] as u32 } else { 0 };
+        let b2 = if chunk.len() > 2 { chunk[2] as u32 } else { 0 };
+        let triple = (b0 << 16) | (b1 << 8) | b2;
+        result.push(CHARS[((triple >> 18) & 0x3F) as usize] as char);
+        result.push(CHARS[((triple >> 12) & 0x3F) as usize] as char);
+        if chunk.len() > 1 { result.push(CHARS[((triple >> 6) & 0x3F) as usize] as char); } else { result.push('='); }
+        if chunk.len() > 2 { result.push(CHARS[(triple & 0x3F) as usize] as char); } else { result.push('='); }
+    }
+    result
+}
+
 #[tauri::command]
 fn check_node() -> Result<String, String> {
-    let output = Command::new("node").arg("--version").output();
+    let output = command_with_path("node").arg("--version").output();
     match output {
         Ok(out) if out.status.success() => {
             Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
@@ -330,7 +544,7 @@ fn check_node() -> Result<String, String> {
 
 #[tauri::command]
 fn check_claude() -> Result<String, String> {
-    let output = Command::new("claude").arg("--version").output();
+    let output = command_with_path("claude").arg("--version").output();
     match output {
         Ok(out) if out.status.success() => {
             Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
@@ -343,7 +557,7 @@ fn check_claude() -> Result<String, String> {
 fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("winget")
+        let output = command_with_path("winget")
             .args(["install", "--id", "OpenJS.NodeJS.LTS", "--accept-package-agreements", "--accept-source-agreements"])
             .output();
         match output {
@@ -354,7 +568,7 @@ fn install_node() -> Result<String, String> {
 
     #[cfg(target_os = "macos")]
     {
-        let output = Command::new("brew")
+        let output = command_with_path("brew")
             .args(["install", "node@22"])
             .output();
         match output {
@@ -365,7 +579,7 @@ fn install_node() -> Result<String, String> {
 
     #[cfg(target_os = "linux")]
     {
-        let output = Command::new("sh")
+        let output = command_with_path("sh")
             .args(["-c", "curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash - && sudo apt-get install -y nodejs"])
             .output();
         match output {
@@ -377,7 +591,7 @@ fn install_node() -> Result<String, String> {
 
 #[tauri::command]
 fn install_claude_code() -> Result<String, String> {
-    let output = Command::new("npm")
+    let output = command_with_path("npm")
         .args(["install", "-g", "@anthropic-ai/claude-code"])
         .output();
     match output {
@@ -434,11 +648,172 @@ fn get_project_path() -> String {
     project_dir().to_string_lossy().to_string()
 }
 
-fn main() {
+#[tauri::command]
+fn set_project_dir(path: String) -> Result<String, String> {
+    let p = PathBuf::from(&path);
+    if !p.exists() {
+        fs::create_dir_all(&p).map_err(|e| format!("폴더 생성 실패: {}", e))?;
+    }
+    if !p.is_dir() {
+        return Err("경로가 폴더가 아닙니다".to_string());
+    }
+    // templates, outputs 하위 폴더 생성
+    fs::create_dir_all(p.join("templates")).ok();
+    fs::create_dir_all(p.join("outputs")).ok();
+    // 설정 파일에 저장
+    let config = project_dir_config_path();
+    if let Some(parent) = config.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    fs::write(&config, &path).map_err(|e| format!("설정 저장 실패: {}", e))?;
+    Ok(path)
+}
+
+#[tauri::command]
+fn copy_templates_to_project(app_handle: tauri::AppHandle) -> Result<String, String> {
+    use tauri::Manager;
+    let templates_dir = project_dir().join("templates");
+    fs::create_dir_all(&templates_dir).ok();
+    let template_files = [
+        "미래에셋생명_A.docx", "미래에셋생명_A.pptx",
+        "미래에셋생명_B.docx", "미래에셋생명_B.pptx",
+        "미래에셋생명_C.docx", "미래에셋생명_C.pptx",
+    ];
+    let mut copied = vec![];
+    for name in &template_files {
+        let dest = templates_dir.join(name);
+        if let Ok(resource_path) = app_handle.path().resolve(
+            format!("resources/templates/{}", name),
+            tauri::path::BaseDirectory::Resource,
+        ) {
+            if resource_path.exists() {
+                fs::copy(&resource_path, &dest).ok();
+                copied.push(name.to_string());
+            }
+        }
+    }
+    Ok(format!("템플릿 {}개 복사 완료", copied.len()))
+}
+
+// ─── API 키 저장/조회 ───
+fn api_key_path() -> PathBuf {
+    dirs::config_dir()
+        .unwrap_or_else(|| PathBuf::from("."))
+        .join("mirae-workbook")
+        .join(".api_key")
+}
+
+#[tauri::command]
+fn save_api_key(key: String) -> Result<String, String> {
+    let path = api_key_path();
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent).ok();
+    }
+    fs::write(&path, key.trim())
+        .map_err(|e| format!("API 키 저장 실패: {}", e))?;
+
+    // 현재 프로세스 환경변수에도 설정 (PTY에서 상속되도록)
+    std::env::set_var("ANTHROPIC_API_KEY", key.trim());
+    Ok("저장 완료".to_string())
+}
+
+#[tauri::command]
+fn load_api_key() -> Result<String, String> {
+    // 1) 환경변수에 이미 있으면 사용
+    if let Ok(key) = std::env::var("ANTHROPIC_API_KEY") {
+        if !key.is_empty() {
+            return Ok(key);
+        }
+    }
+    // 2) 저장된 파일에서 읽기
+    let path = api_key_path();
+    match fs::read_to_string(&path) {
+        Ok(key) if !key.trim().is_empty() => {
+            std::env::set_var("ANTHROPIC_API_KEY", key.trim());
+            Ok(key.trim().to_string())
+        }
+        _ => Err("API 키가 설정되지 않았습니다".to_string()),
+    }
+}
+
+#[tauri::command]
+fn set_env_for_pty(key: String, value: String) {
+    std::env::set_var(&key, &value);
+}
+
+/// 프로젝트 파일 초기화 (templates 폴더만 보존, outputs 내용물 비움, 나머지 전부 삭제)
+#[tauri::command]
+fn reset_project() -> Result<String, String> {
     let dir = project_dir();
-    let claude_md = dir.join("CLAUDE.md");
-    if !claude_md.exists() {
-        fs::write(&claude_md, include_str!("../resources/CLAUDE.md")).ok();
+    let keep = ["templates"];
+    let mut removed = vec![];
+
+    let entries = fs::read_dir(&dir).map_err(|e| format!("디렉토리 읽기 실패: {}", e))?;
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        if keep.contains(&name.as_str()) {
+            continue;
+        }
+        let path = entry.path();
+        if name == "outputs" {
+            // outputs 폴더는 유지하되 안의 파일만 삭제
+            if let Ok(files) = fs::read_dir(&path) {
+                let mut count = 0;
+                for f in files.flatten() {
+                    if f.path().is_file() {
+                        fs::remove_file(f.path()).ok();
+                        count += 1;
+                    }
+                }
+                if count > 0 {
+                    removed.push(format!("outputs/내 파일 {}개", count));
+                }
+            }
+            continue;
+        }
+        if path.is_dir() {
+            fs::remove_dir_all(&path).ok();
+            removed.push(name);
+        } else if path.is_file() {
+            fs::remove_file(&path).ok();
+            removed.push(name);
+        }
+    }
+
+    // Claude Code 프로젝트 메모리 삭제 (~/.claude/projects/에서 이 프로젝트에 해당하는 폴더)
+    if let Some(home) = dirs::home_dir() {
+        let claude_projects = home.join(".claude").join("projects");
+        if claude_projects.exists() {
+            // project_dir 경로를 Claude Code 프로젝트 키로 변환 (/ → -)
+            let proj_path = dir.to_string_lossy().replace('/', "-");
+            if let Ok(entries) = fs::read_dir(&claude_projects) {
+                for entry in entries.flatten() {
+                    let name = entry.file_name().to_string_lossy().to_string();
+                    if proj_path.contains(&name) || name.contains("mirae-workbook") || name.contains("doc-automation") {
+                        if entry.path().is_dir() {
+                            fs::remove_dir_all(entry.path()).ok();
+                            removed.push(format!("Claude 메모리({})", name));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    Ok(format!("초기화 완료: {}", if removed.is_empty() { "삭제할 항목 없음".to_string() } else { removed.join(", ") }))
+}
+
+
+fn main() {
+    let _dir = project_dir();
+    // CLAUDE.md, Skill, Hook 등은 강의 중 SetupFiles 버튼이나 Claude Code로 생성
+
+    // 저장된 API 키가 있으면 프로세스 환경변수에 로드
+    if let Ok(key) = fs::read_to_string(api_key_path()) {
+        let key = key.trim();
+        if !key.is_empty() {
+            std::env::set_var("ANTHROPIC_API_KEY", key);
+        }
     }
 
     tauri::Builder::default()
@@ -446,11 +821,18 @@ fn main() {
             sessions: Mutex::new(HashMap::new()),
             next_id: AtomicU32::new(1),
         })
+        .setup(|_app| {
+            // 템플릿 복사는 사용자가 폴더를 지정한 뒤 copy_templates_to_project로 실행
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             run_shell,
+            start_claude_login,
+            check_auth_status,
             run_claude,
             list_output,
             open_file,
+            preview_file,
             check_node,
             check_claude,
             install_node,
@@ -463,6 +845,12 @@ fn main() {
             pty_write,
             pty_resize,
             pty_kill,
+            save_api_key,
+            load_api_key,
+            set_env_for_pty,
+            reset_project,
+            set_project_dir,
+            copy_templates_to_project,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
