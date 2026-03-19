@@ -741,22 +741,18 @@ fn set_env_for_pty(key: String, value: String) {
     std::env::set_var(&key, &value);
 }
 
-/// 프로젝트 파일 초기화 (templates 폴더만 보존, outputs 내용물 비움, 나머지 전부 삭제)
+/// 프로젝트 파일 전체 초기화 (templates, outputs 내용물 포함 전부 삭제, 폴더 구조만 유지)
 #[tauri::command]
 fn reset_project() -> Result<String, String> {
     let dir = project_dir();
-    let keep = ["templates"];
     let mut removed = vec![];
 
     let entries = fs::read_dir(&dir).map_err(|e| format!("디렉토리 읽기 실패: {}", e))?;
     for entry in entries.flatten() {
         let name = entry.file_name().to_string_lossy().to_string();
-        if keep.contains(&name.as_str()) {
-            continue;
-        }
         let path = entry.path();
-        if name == "outputs" {
-            // outputs 폴더는 유지하되 안의 파일만 삭제
+        if name == "outputs" || name == "templates" {
+            // 폴더는 유지하되 안의 파일만 삭제
             if let Ok(files) = fs::read_dir(&path) {
                 let mut count = 0;
                 for f in files.flatten() {
@@ -766,7 +762,7 @@ fn reset_project() -> Result<String, String> {
                     }
                 }
                 if count > 0 {
-                    removed.push(format!("outputs/내 파일 {}개", count));
+                    removed.push(format!("{}/내 파일 {}개", name, count));
                 }
             }
             continue;
