@@ -1,6 +1,6 @@
 {
   "$schema": "https://v2.tauri.app/schema.json",
-  "productName": "바이브 코딩 워크북",
+  "productName": "VibeCodingWorkbook",
   "version": "1.0.0",
   "identifier": "com.miraeasset.life.workbook",
   "build": {
