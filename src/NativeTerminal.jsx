@@ -9,6 +9,7 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
   const sessionRef = useRef(null);
   const unlistenRef = useRef(null);
   const koInputRef = useRef(null);
+  const invokeRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
   const [koMode, setKoMode] = useState(false);
@@ -16,10 +17,8 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
 
   // 한글 입력 바에서 Enter 시 PTY에 전송
   function sendKorean() {
-    if (koText && sessionRef.current != null) {
-      import("@tauri-apps/api/core").then(({ invoke }) => {
-        invoke("pty_write", { sessionId: sessionRef.current, data: koText }).catch(() => {});
-      });
+    if (koText && sessionRef.current != null && invokeRef.current) {
+      invokeRef.current("pty_write", { sessionId: sessionRef.current, data: koText + "\n" }).catch(() => {});
     }
     setKoText("");
     setKoMode(false);
@@ -37,6 +36,7 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
         const { WebLinksAddon } = await import("@xterm/addon-web-links");
         const { invoke } = await import("@tauri-apps/api/core");
         const { listen } = await import("@tauri-apps/api/event");
+        invokeRef.current = invoke;
 
         if (cancelled) return;
 
