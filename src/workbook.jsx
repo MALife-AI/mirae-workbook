@@ -2582,18 +2582,29 @@ HTML + Python으로 간단하게 만들어줘.`}</Ref>
   },
   {
     section: "모듈 2",
-    title: "실습: 웹 검색 추가하기",
+    title: "실습: 웹 크롤링 추가하기",
     render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>실습: <span style={{ color: M.or }}>웹 검색 추가하기</span></div>
-        <Cmd cmd="claude mcp add web-search -- npx @anthropic-ai/mcp-web-search" desc="MCP 추가" />
-        <Cmd cmd="claude" desc="Claude Code 실행" />
-        <Ref title="고도화 프롬프트">{`이 프로그램에 웹 검색 기능을 추가해줘.
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>실습: <span style={{ color: M.or }}>웹 크롤링 추가하기</span></div>
+        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>AI가 직접 브라우저를 열어서 웹 페이지를 크롤링합니다</div>
+        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "12px 16px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: M.or, marginBottom: 8 }}>Step 1: Puppeteer MCP 추가</div>
+          <Cmd cmd="claude mcp add puppeteer -- npx -y @anthropic-ai/mcp-puppeteer" desc="브라우저 크롤링 MCP 설치" />
+        </div>
+        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "12px 16px" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#86efac", marginBottom: 8 }}>Step 2: Claude Code에서 크롤링 지시</div>
+          <Cmd cmd="claude" desc="Claude Code 실행" />
+          <Ref title="크롤링 프롬프트">{`금감원 공시 페이지(https://dart.fss.or.kr)에 접속해서
+미래에셋생명의 최근 분기 실적 공시를 찾아줘.
 
-주제를 입력하면:
-1. 먼저 최신 데이터를 자동으로 검색
-2. 금감원·보험연구원 등 공신력 있는 소스 우선
-3. 수집한 데이터를 바탕으로 보고서 작성`}</Ref>
+찾은 데이터를:
+1. 수입보험료, 당기순이익, 총자산 등 핵심 수치 추출
+2. 전 분기 대비 증감률 계산
+3. outputs/ 폴더에 Word 보고서로 정리`}</Ref>
+        </div>
+        <div style={{ ...card({ background: M.bg3 }), padding: "10px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 15, color: M.tx2 }}>Puppeteer MCP는 실제 Chrome 브라우저를 띄워서 페이지를 탐색합니다. 로그인이 필요한 사이트도 접근 가능!</div>
+        </div>
       </div>
     ),
   },
