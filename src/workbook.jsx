@@ -1825,31 +1825,6 @@ HTML + Python으로 간단하게 만들어줘.`}</Ref>
   },
   {
     section: "모듈 1",
-    title: "CLAUDE.md 3단계 계층",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>CLAUDE.md의 <span style={{ color: M.or }}>3단계 계층</span></div>
-        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>회사→팀→개인 순서로 규칙이 적용됩니다</div>
-        {[
-          { level: "1", name: "회사 전체 규칙", desc: "보안 정책, 개인정보 금지 등 전사 공통 규칙", icon: "🏢", color: M.or, path: "조직 레벨" },
-          { level: "2", name: "프로젝트 규칙", desc: "이 프로젝트의 코딩 표준, 템플릿 규칙", icon: "📂", color: M.ac, path: "./CLAUDE.md (팀 공유)" },
-          { level: "3", name: "개인 설정", desc: "나만의 작업 스타일, 선호 형식", icon: "👤", color: M.blM, path: "~/.claude/CLAUDE.md" },
-        ].map(l => (
-          <div key={l.level} style={{ display: "flex", alignItems: "center", gap: 16, background: M.bg2, borderRadius: 14, padding: "18px 24px", border: `1px solid ${M.bd}`, borderLeft: `4px solid ${l.color}` }}>
-            <div style={{ width: 44, height: 44, borderRadius: "50%", background: l.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{l.icon}</div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 800, color: l.color, fontSize: 17 }}>{l.name}</div>
-              <div style={{ color: M.tx2, fontSize: 14, marginTop: 2 }}>{l.desc}</div>
-            </div>
-            <div style={{ fontSize: 14, color: M.tx3, fontFamily: "monospace", background: M.bg3, padding: "4px 10px", borderRadius: 6 }}>{l.path}</div>
-          </div>
-        ))}
-        <div style={{ fontSize: 14, color: M.tx3, textAlign: "center" }}>나중에 적용된 규칙이 우선합니다 (개인 {">"} 프로젝트 {">"} 회사)</div>
-      </div>
-    ),
-  },
-  {
-    section: "모듈 1",
     title: "성공 패턴: 반복이 완벽을 이긴다",
     render: () => (
       <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
@@ -1993,25 +1968,36 @@ HTML + Python으로 간단하게 만들어줘.`}</Ref>
   },
   {
     section: "모듈 2",
-    title: "컨텍스트 4가지",
+    title: "컨텍스트란 실제로 뭔가요?",
     render: () => (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>컨텍스트 <span style={{ color: M.or }}>4가지</span></div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>컨텍스트란 <span style={{ color: M.or }}>실제로</span> 뭔가요?</div>
+        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 6 }}>AI가 한 번에 볼 수 있는 정보의 총량</div>
+          <div style={{ fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
+            AI와 대화할 때 매번 전달되는 모든 정보를 합쳐서 컨텍스트라고 합니다.<br/>
+            <strong style={{ color: M.tx }}>CLAUDE.md + 대화 내용 + 파일 내용 + 프롬프트</strong> = 전부 합쳐서 하나의 컨텍스트
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
           {[
-            { icon: "📋", name: "CLAUDE.md", desc: "프로젝트 전체 규칙 → 항상 지키는 기본 원칙", color: M.or },
-            { icon: "🎯", name: "Skill", desc: "업무별 매뉴얼 → 보고서·PPT 작성 가이드", color: "#059669" },
-            { icon: "⚡", name: "Hook", desc: "자동 검증 → 개인정보 등 안전장치", color: "#fbbf24" },
-            { icon: "🔌", name: "MCP", desc: "외부 데이터 → 실시간 웹 검색·DB 연결", color: M.blM },
+            { icon: "📋", label: "CLAUDE.md", desc: "매 대화 시작 시 자동으로 읽힘", ex: "\"한국어로 써줘\" 같은 규칙", color: M.or },
+            { icon: "💬", label: "대화 내용", desc: "지금까지 주고받은 모든 메시지", ex: "\"아까 보고서에서 표 추가해줘\"", color: M.ac },
+            { icon: "📄", label: "파일 내용", desc: "AI가 읽은 코드, 문서, 템플릿", ex: "templates/양식.docx 분석 결과", color: "#059669" },
+            { icon: "🔌", label: "외부 데이터", desc: "MCP로 가져온 웹 검색 결과 등", ex: "\"2026년 퇴직연금 시장 규모는...\"", color: M.blM },
           ].map(c => (
-            <div key={c.name} style={{ display: "flex", gap: 16, alignItems: "center", ...card(), padding: "16px 20px" }}>
-              <span style={{ fontSize: 28 }}>{c.icon}</span>
-              <div>
-                <span style={{ fontWeight: 800, color: c.color, fontSize: 18 }}>{c.name}</span>
-                <span style={{ color: M.tx2, fontSize: 16, marginLeft: 12 }}>{c.desc}</span>
+            <div key={c.label} style={{ ...card(), borderLeft: `4px solid ${c.color}`, padding: "12px 16px" }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 6 }}>
+                <span style={{ fontSize: 20 }}>{c.icon}</span>
+                <span style={{ fontWeight: 800, color: c.color, fontSize: 16 }}>{c.label}</span>
               </div>
+              <div style={{ fontSize: 14, color: M.tx2, marginBottom: 4 }}>{c.desc}</div>
+              <div style={{ fontSize: 13, color: M.tx3, fontFamily: "'JetBrains Mono',monospace" }}>{c.ex}</div>
             </div>
           ))}
+        </div>
+        <div style={{ ...card({ background: M.bg3 }), textAlign: "center", padding: "10px 16px" }}>
+          <div style={{ fontSize: 15, color: M.tx2 }}>이 공간에는 <strong style={{ color: "#fca5a5" }}>한계</strong>가 있습니다. 대화가 길어지면 앞 내용을 잊어버리는 이유!</div>
         </div>
       </div>
     ),
@@ -2570,17 +2556,27 @@ HTML + Python으로 간단하게 만들어줘.`}</Ref>
   },
   {
     section: "모듈 2",
-    title: "고도화 과정 요약",
+    title: "모듈 2 요약: 이것만 기억하세요",
     render: () => (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>고도화 <span style={{ color: M.or }}>과정 요약</span></div>
-        <Flow steps={[
-          { icon: "📝", t: "기본 버전 (모듈 1)", d: "정적 데이터로 보고서 생성", c1: M.tx3, c2: M.bd },
-          { icon: "🔌", t: "+ MCP 웹 검색", d: "실시간 최신 데이터 수집 추가", c1: M.blM, c2: M.ac },
-          { icon: "🎯", t: "+ Skill 적용", d: "품질 일관성 확보", c1: "#059669", c2: "#34d399" },
-          { icon: "⚡", t: "+ Hook 안전장치", d: "개인정보 자동 차단", c1: "#fbbf24", c2: "#fcd34d" },
-          { icon: "🚀", t: "고도화 완성!", d: "검색 → 분석 → 생성 → 검증 자동화", c1: M.or, c2: M.orL },
-        ]} />
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>모듈 2 요약: <span style={{ color: M.or }}>이것만 기억하세요</span></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {[
+            { icon: "📚", label: "컨텍스트 관리", desc: "대화가 길어지면 AI가 잊어버림 → /compact 전에 메모리 저장", color: M.ac },
+            { icon: "📝", label: "노트 테이킹", desc: "중요한 결정사항을 메모 파일로 저장 → 다음 대화에서도 유지", color: M.or },
+            { icon: "🔌", label: "MCP 연결", desc: "실시간 웹 검색으로 최신 데이터 수집 → 정확한 수치", color: M.blM },
+            { icon: "⚡", label: "병렬 실행", desc: "여러 작업을 동시에 처리 → 시간 절약", color: "#059669" },
+            { icon: "💬", label: "/btw 끼어들기", desc: "작업 중에 새 요청 추가 가능 → 흐름 안 끊김", color: "#fbbf24" },
+          ].map(c => (
+            <div key={c.label} style={{ display: "flex", gap: 14, alignItems: "center", background: M.bg2, borderRadius: 12, padding: "14px 18px", border: `1px solid ${M.bd}`, borderLeft: `4px solid ${c.color}` }}>
+              <span style={{ fontSize: 22 }}>{c.icon}</span>
+              <div>
+                <span style={{ fontWeight: 800, color: c.color, fontSize: 16 }}>{c.label}</span>
+                <span style={{ color: M.tx2, fontSize: 15, marginLeft: 10 }}>{c.desc}</span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     ),
   },
@@ -4294,19 +4290,54 @@ export default function App() {
             </div>
             <div ref={slideContainerRef} style={{ flex: 1, overflow: "auto", padding: "12px 24px", display: "flex", alignItems: "flex-start", justifyContent: "center", minHeight: 0 }}
               onClick={(e) => {
-                // 코드 블록 클릭 시 클립보드 복사
+                // data-copyable 클릭 → 인라인 편집 input + 복사 버튼으로 변환
                 const el = e.target.closest("[data-copyable]");
-                if (el) {
+                if (el && !el.querySelector("input")) {
                   const text = el.getAttribute("data-copyable");
-                  navigator.clipboard.writeText(text);
-                  const old = el.style.borderColor;
-                  el.style.borderColor = "#059669";
-                  const tip = document.createElement("div");
-                  tip.textContent = "✓ 복사됨";
-                  tip.style.cssText = "position:absolute;top:-20px;right:8px;background:#059669;color:#fff;padding:2px 8px;border-radius:4px;font-size:10px;z-index:99;pointer-events:none";
-                  el.style.position = "relative";
-                  el.appendChild(tip);
-                  setTimeout(() => { el.style.borderColor = old; tip.remove(); }, 1200);
+                  const origText = el.textContent;
+                  const origStyle = el.style.cssText;
+                  // 기존 자식 제거
+                  while (el.firstChild) el.removeChild(el.firstChild);
+                  el.style.cssText = origStyle + ";display:flex;align-items:center;gap:8px;padding:6px 10px;";
+
+                  const input = document.createElement("input");
+                  input.type = "text";
+                  input.value = text;
+                  input.style.cssText = "flex:1;background:transparent;border:none;color:#F58220;font-family:'JetBrains Mono',monospace;font-size:14px;outline:none;padding:0;min-width:0;";
+                  el.appendChild(input);
+
+                  const copyBtn = document.createElement("button");
+                  copyBtn.textContent = "복사";
+                  copyBtn.style.cssText = "background:#F58220;color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0;";
+                  copyBtn.onclick = (ev) => {
+                    ev.stopPropagation();
+                    navigator.clipboard.writeText(input.value);
+                    copyBtn.textContent = "✓";
+                    setTimeout(() => { copyBtn.textContent = "복사"; }, 1000);
+                  };
+                  el.appendChild(copyBtn);
+
+                  input.focus();
+                  input.select();
+
+                  const restore = () => {
+                    el.setAttribute("data-copyable", input.value);
+                    while (el.firstChild) el.removeChild(el.firstChild);
+                    el.style.cssText = origStyle;
+                    el.textContent = input.value;
+                  };
+                  input.addEventListener("blur", () => {
+                    setTimeout(() => {
+                      if (!el.contains(document.activeElement)) restore();
+                    }, 200);
+                  });
+                  input.addEventListener("keydown", (ev) => {
+                    if (ev.key === "Escape") restore();
+                    if (ev.key === "Enter") {
+                      navigator.clipboard.writeText(input.value);
+                      restore();
+                    }
+                  });
                 }
               }}
             >
