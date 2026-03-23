@@ -4,6 +4,7 @@
   "description": "기본 앱 권한",
   "windows": ["main"],
   "permissions": [
-    "core:default"
+    "core:default",
+    "pty:default"
   ]
 }

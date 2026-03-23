@@ -15,6 +15,8 @@ use portable_pty::{CommandBuilder, PtySize, native_pty_system};
 use tauri::{AppHandle, Emitter};
 use serde::Serialize;
 
+
+
 /// GUI 앱에서도 node/npm/claude 등을 찾을 수 있도록 확장된 PATH 반환
 fn expanded_path() -> String {
     let base = std::env::var("PATH").unwrap_or_default();
@@ -813,12 +815,12 @@ fn main() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_pty::init())
         .manage(PtyState {
             sessions: Mutex::new(HashMap::new()),
             next_id: AtomicU32::new(1),
         })
         .setup(|_app| {
-            // 템플릿 복사는 사용자가 폴더를 지정한 뒤 copy_templates_to_project로 실행
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
