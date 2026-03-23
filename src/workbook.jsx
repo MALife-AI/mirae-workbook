@@ -105,212 +105,31 @@ const SLIDES = [
     ),
   },
   {
-    section: "도입",
-    title: "AI가 발전했습니다",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>AI가 <span style={{ color: M.or }}>발전</span>했습니다</div>
-        {vsBox(
-          "예전 AI",
-          ["질문하면 → 텍스트 답변만", "내가 복사해서 Word에 붙여넣기", "서식, 표, 디자인은 내가 직접"],
-          "지금 AI (Claude Code)",
-          ["질문하면 → 파일을 직접 만들어줌", "Word, PPT 파일이 자동 생성", "인터넷 검색도 스스로 함"]
-        )}
-        <div style={{ textAlign: "center", fontSize: 18, color: M.tx2 }}>이제 AI는 "말"만 하는 게 아니라 "행동"합니다</div>
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "기존 AI vs Claude Code",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>무엇이 다른가요?</div>
-        {vsBox(
-          "ChatGPT / Claude.ai",
-          ["\"보고서 써줘\"", "→ 텍스트로 답변", "→ 내가 복사·붙여넣기", "→ 서식 내가 작업"],
-          "Claude Code",
-          ["\"보고서 써줘\"", "→ 인터넷 검색", "→ 코드 작성 + 실행", "→ .docx 파일 완성!"]
-        )}
-        <div style={{ ...card(), textAlign: "center" }}>
-          <span style={{ fontSize: 18, color: M.tx2 }}>핵심: Claude Code는 <strong style={{ color: M.or }}>비서</strong>처럼 일을 처음부터 끝까지 해결합니다</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "실제 사례: 보고서 작업",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx }}>실제 사례: <span style={{ color: M.or }}>보고서 작업</span></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 24, width: "100%", alignItems: "center" }}>
-          <div style={{ ...card(), textAlign: "center", borderLeft: `4px solid #fca5a5` }}>
-            <div style={{ fontSize: 14, color: M.tx3, marginBottom: 8 }}>기존 방식</div>
-            <div style={{ fontSize: 72, fontWeight: 900, color: "#fca5a5" }}>4시간</div>
-            <div style={{ color: M.tx2, marginTop: 8, fontSize: 15 }}>검색 → 정리 → Word → 서식</div>
-          </div>
-          <div style={{ fontSize: 40, color: M.or, fontWeight: 900 }}>→</div>
-          <div style={{ ...card(), textAlign: "center", borderLeft: `4px solid #86efac` }}>
-            <div style={{ fontSize: 14, color: M.tx3, marginBottom: 8 }}>Claude Code</div>
-            <div style={{ fontSize: 72, fontWeight: 900, color: "#86efac" }}>10분</div>
-            <div style={{ color: M.tx2, marginTop: 8, fontSize: 15 }}>한 줄 입력 → 완성!</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 18, color: M.tx2 }}>상황: 내일 전략회의를 위한 퇴직연금 시장 자료가 필요</div>
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "실제 사례: 그 외 업무들",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>보고서만이 <span style={{ color: M.or }}>아닙니다</span></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {[
-            { task: "PPT 제작", before: "2일", after: "20분", detail: "\"분기 실적 PPT 8장\" → 자동 생성", icon: "📊" },
-            { task: "시장 조사", before: "반나절", after: "5분", detail: "금감원·보험연구원 자동 수집 + 출처 정리", icon: "🔍" },
-            { task: "경쟁사 분석", before: "3시간", after: "10분", detail: "삼성·한화·교보 비교표 자동 생성", icon: "📈" },
-            { task: "컴플라이언스 점검", before: "2시간", after: "3분", detail: "4대 법규 기준 자동 검토 + 수정안", icon: "📋" },
-          ].map(c => (
-            <div key={c.task} style={{ ...card(), borderLeft: `4px solid ${M.or}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 17, fontWeight: 800, color: M.tx }}>{c.icon} {c.task}</span>
-                <span style={{ fontSize: 14, color: M.tx3 }}><span style={{ color: "#fca5a5" }}>{c.before}</span> → <span style={{ color: "#86efac", fontWeight: 700 }}>{c.after}</span></span>
-              </div>
-              <div style={{ fontSize: 14, color: M.tx2 }}>{c.detail}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 17, color: M.tx2, textAlign: "center" }}>반복적이고 구조화된 업무라면 <strong style={{ color: M.or }}>거의 모든 것</strong>을 자동화할 수 있습니다</div>
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "터미널이란?",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>터미널이란?</div>
-        <div style={{ ...card(), textAlign: "center', padding: '32px" }}>
-          <div style={{ fontSize: 48 }}>⌨️</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: M.or, marginTop: 12 }}>글자로 컴퓨터에 명령하는 창</div>
-          <div style={{ fontSize: 18, color: M.tx2, marginTop: 10 }}>카카오톡으로 문자 보내듯이, 터미널로 컴퓨터에 명령을 보냅니다</div>
-        </div>
-        {vsBox(
-          "마우스 방식 (GUI)",
-          ["폴더 클릭", "아이콘 더블클릭", "메뉴에서 선택"],
-          "터미널 방식 (CLI)",
-          ["명령어 입력 → Enter", "결과가 텍스트로 나옴", "Claude Code가 여기서 동작"]
-        )}
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "터미널 사용법",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx }}>터미널 사용법 — <span style={{ color: M.or }}>딱 2가지만</span></div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-          {conceptCard("1️⃣", "claude 입력 후 Enter", "Claude Code를 실행합니다. 그러면 AI가 준비 완료!", M.or)}
-          {conceptCard("2️⃣", "한글로 원하는 것 입력", "\"퇴직연금 보고서 만들어줘\" 처럼 자연스럽게 입력하면 됩니다", M.ac)}
-        </div>
-        <div style={{ background: M.bg3, borderRadius: 12, padding: 20, fontFamily: "monospace", fontSize: 16, lineHeight: 2, width: "100%" }}>
-          <span style={{ color: "#86efac" }}>$</span> <span style={{ color: M.or }}>claude</span><br/>
-          <span style={{ color: M.tx3 }}>(Claude Code 실행됨)</span><br/>
-          <span style={{ color: "#86efac" }}>{">"}</span> <span style={{ color: M.tx }}>퇴직연금 보고서 만들어줘</span>
-        </div>
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "오늘 배울 도구 한눈에 보기",
+    section: "도입: 시연",
+    title: "자연어 → 관념화 → 프로그램",
     render: () => (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>오늘 배울 <span style={{ color: M.or }}>도구 한눈에</span></div>
-        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>각 도구는 모듈에서 자세히 배웁니다. 지금은 전체 그림만 봐두세요.</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>자연어로 <span style={{ color: M.or }}>생각</span>하면 <span style={{ color: "#86efac" }}>프로그램</span>이 됩니다</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {[
-            { icon: "💬", name: "프롬프트", desc: "AI에게 하는 말. 한글로 자연스럽게 지시", color: M.ac },
-            { icon: "📋", name: "CLAUDE.md", desc: "프로젝트 규칙서. 한 번 쓰면 매번 자동 적용", color: M.or },
-            { icon: "🎯", name: "Skill", desc: "재사용 가능한 업무 매뉴얼. 팀 전체 공유", color: "#059669" },
-            { icon: "⌨️", name: "Command", desc: "/명령어 한 마디로 복잡한 워크플로우 실행", color: M.blM },
-            { icon: "⚡", name: "Hook", desc: "자동 안전장치. 개인정보 등 100% 강제 검사", color: "#fbbf24" },
-            { icon: "🔌", name: "MCP", desc: "외부 연결. 웹 검색·Slack·DB 등 능력 추가", color: "#c084fc" },
+            { step: "1", title: "관념화", desc: "\"매달 경쟁사 3곳 실적 비교해서 보고서 만드는 게 필요해\"", icon: "💭", color: M.bl, sub: "복잡한 업무를 자연어로 정리" },
+            { step: "2", title: "지시", desc: "\"경쟁사 분석 보고서 만들어줘. 삼성·한화·교보 비교표 포함해서\"", icon: "💬", color: M.or, sub: "AI에게 한글로 요청" },
+            { step: "3", title: "구현", desc: "AI가 코드를 작성하고 실행 → 완성된 보고서 파일 생성", icon: "⚡", color: "#059669", sub: "바이브코딩: 코드를 몰라도 프로그램이 만들어짐" },
+            { step: "4", title: "고도화", desc: "반복되는 절차를 Skill로 저장 → 다음엔 한 마디로 동일 품질", icon: "🎯", color: M.ac, sub: "한 번 만든 노하우가 영구 자산이 됨" },
           ].map(s => (
-            <div key={s.name} style={{ display: "flex", gap: 14, alignItems: "center", background: M.bg2, borderRadius: 12, padding: "12px 18px", border: `1px solid ${M.bd}`, borderLeft: `4px solid ${s.color}` }}>
-              <span style={{ fontSize: 22 }}>{s.icon}</span>
-              <span style={{ fontWeight: 800, color: s.color, fontSize: 16, minWidth: 100 }}>{s.name}</span>
-              <span style={{ color: M.tx2, fontSize: 15 }}>{s.desc}</span>
+            <div key={s.step} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
+              <div style={{ width: 44, height: 44, borderRadius: "50%", background: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{s.icon}</div>
+              <div style={{ flex: 1, background: M.bg2, borderRadius: 12, padding: "12px 18px", border: `1px solid ${M.bd}` }}>
+                <div style={{ fontWeight: 800, color: s.color, fontSize: 16 }}>{s.title}</div>
+                <div style={{ color: M.tx, fontSize: 15, marginTop: 4, fontStyle: "italic" }}>{s.desc}</div>
+                <div style={{ color: M.tx3, fontSize: 13, marginTop: 4 }}>{s.sub}</div>
+              </div>
             </div>
           ))}
         </div>
       </div>
     ),
   },
-  {
-    section: "도입",
-    title: "설치하기",
-    render: ({ isMac } = {}) => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>설치하기 — <span style={{ color: M.or }}>처음 한 번만</span></div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div style={{ ...card(), borderLeft: `4px solid #059669` }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-              <div style={{ fontSize: 36 }}>1️⃣</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: 20, color: "#059669", marginBottom: 10 }}>Node.js 설치</div>
-                {isMac ? (
-                  <Cmd cmd="brew install node" desc="macOS (Homebrew)" />
-                ) : (
-                  <Cmd cmd="winget install OpenJS.NodeJS.LTS" desc="Windows (winget)" />
-                )}
-                <div style={{ fontSize: 14, color: M.tx3, marginTop: 6 }}>또는 nodejs.org 에서 LTS 버전 직접 다운로드</div>
-              </div>
-            </div>
-          </div>
-          <div style={{ ...card() }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-              <div style={{ fontSize: 36 }}>2️⃣</div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontWeight: 800, fontSize: 20, color: M.or, marginBottom: 10 }}>Claude Code 설치</div>
-                <Cmd cmd="npm install -g @anthropic-ai/claude-code" desc="터미널에서 실행 (macOS·Windows 동일)" />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>설치는 한 번만! 이후에는 claude 명령어만 입력하면 됩니다</div>
-      </div>
-    ),
-  },
-  {
-    section: "도입",
-    title: "첫 실행",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>첫 실행</div>
-        <div style={{ ...card() }}>
-          <div style={{ fontWeight: 800, fontSize: 20, color: M.or, marginBottom: 16 }}>터미널에서 아래 명령어 입력</div>
-          <Cmd cmd="claude" desc="Claude Code 시작" />
-          <div style={{ marginTop: 16, fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
-            실행하면 인증 화면이 나타납니다.<br/>
-            로그인 방식 또는 API 키로 인증하면 준비 완료!
-          </div>
-        </div>
-        <div style={{ ...card(), borderLeft: `4px solid ${M.ac}` }}>
-          <div style={{ fontSize: 18, color: M.tx, lineHeight: 1.8 }}>
-            인증 후 이렇게 입력해보세요:<br/>
-            <span style={{ color: M.or, fontWeight: 700 }}>"안녕! 자기소개 해줘"</span>
-          </div>
-        </div>
-        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>다음 슬라이드부터 실제 시연을 보여드립니다</div>
-      </div>
-    ),
-  },
-  // ─── 도입: LLM의 업무 영향 + 오늘의 목표 ───
   {
     section: "도입: 시연",
     title: "LLM이 바꾼 업무 방식",
@@ -415,32 +234,6 @@ const SLIDES = [
             여러분의 업무 경험과 도메인 지식이 곧 설계 능력입니다.<br/>
             오늘 배우는 것은 그 능력을 AI로 <strong>실행</strong>하는 방법입니다.
           </div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    section: "도입: 시연",
-    title: "자연어 → 관념화 → 프로그램",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>자연어로 <span style={{ color: M.or }}>생각</span>하면 <span style={{ color: "#86efac" }}>프로그램</span>이 됩니다</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {[
-            { step: "1", title: "관념화", desc: "\"매달 경쟁사 3곳 실적 비교해서 보고서 만드는 게 필요해\"", icon: "💭", color: M.bl, sub: "복잡한 업무를 자연어로 정리" },
-            { step: "2", title: "지시", desc: "\"경쟁사 분석 보고서 만들어줘. 삼성·한화·교보 비교표 포함해서\"", icon: "💬", color: M.or, sub: "AI에게 한글로 요청" },
-            { step: "3", title: "구현", desc: "AI가 코드를 작성하고 실행 → 완성된 보고서 파일 생성", icon: "⚡", color: "#059669", sub: "바이브코딩: 코드를 몰라도 프로그램이 만들어짐" },
-            { step: "4", title: "고도화", desc: "반복되는 절차를 Skill로 저장 → 다음엔 한 마디로 동일 품질", icon: "🎯", color: M.ac, sub: "한 번 만든 노하우가 영구 자산이 됨" },
-          ].map(s => (
-            <div key={s.step} style={{ display: "flex", gap: 14, alignItems: "flex-start" }}>
-              <div style={{ width: 44, height: 44, borderRadius: "50%", background: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>{s.icon}</div>
-              <div style={{ flex: 1, background: M.bg2, borderRadius: 12, padding: "12px 18px", border: `1px solid ${M.bd}` }}>
-                <div style={{ fontWeight: 800, color: s.color, fontSize: 16 }}>{s.title}</div>
-                <div style={{ color: M.tx, fontSize: 15, marginTop: 4, fontStyle: "italic" }}>{s.desc}</div>
-                <div style={{ color: M.tx3, fontSize: 13, marginTop: 4 }}>{s.sub}</div>
-              </div>
-            </div>
-          ))}
         </div>
       </div>
     ),
@@ -671,6 +464,213 @@ outputs/ 폴더에 저장해줘.`}</Ref>
       </div>
     ),
   },
+  {
+    section: "도입",
+    title: "AI가 발전했습니다",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>AI가 <span style={{ color: M.or }}>발전</span>했습니다</div>
+        {vsBox(
+          "예전 AI",
+          ["질문하면 → 텍스트 답변만", "내가 복사해서 Word에 붙여넣기", "서식, 표, 디자인은 내가 직접"],
+          "지금 AI (Claude Code)",
+          ["질문하면 → 파일을 직접 만들어줌", "Word, PPT 파일이 자동 생성", "인터넷 검색도 스스로 함"]
+        )}
+        <div style={{ textAlign: "center", fontSize: 18, color: M.tx2 }}>이제 AI는 "말"만 하는 게 아니라 "행동"합니다</div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "기존 AI vs Claude Code",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>무엇이 다른가요?</div>
+        {vsBox(
+          "ChatGPT / Claude.ai",
+          ["\"보고서 써줘\"", "→ 텍스트로 답변", "→ 내가 복사·붙여넣기", "→ 서식 내가 작업"],
+          "Claude Code",
+          ["\"보고서 써줘\"", "→ 인터넷 검색", "→ 코드 작성 + 실행", "→ .docx 파일 완성!"]
+        )}
+        <div style={{ ...card(), textAlign: "center" }}>
+          <span style={{ fontSize: 18, color: M.tx2 }}>핵심: Claude Code는 <strong style={{ color: M.or }}>비서</strong>처럼 일을 처음부터 끝까지 해결합니다</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "실제 사례: 보고서 작업",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
+        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx }}>실제 사례: <span style={{ color: M.or }}>보고서 작업</span></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 24, width: "100%", alignItems: "center" }}>
+          <div style={{ ...card(), textAlign: "center", borderLeft: `4px solid #fca5a5` }}>
+            <div style={{ fontSize: 14, color: M.tx3, marginBottom: 8 }}>기존 방식</div>
+            <div style={{ fontSize: 72, fontWeight: 900, color: "#fca5a5" }}>4시간</div>
+            <div style={{ color: M.tx2, marginTop: 8, fontSize: 15 }}>검색 → 정리 → Word → 서식</div>
+          </div>
+          <div style={{ fontSize: 40, color: M.or, fontWeight: 900 }}>→</div>
+          <div style={{ ...card(), textAlign: "center", borderLeft: `4px solid #86efac` }}>
+            <div style={{ fontSize: 14, color: M.tx3, marginBottom: 8 }}>Claude Code</div>
+            <div style={{ fontSize: 72, fontWeight: 900, color: "#86efac" }}>10분</div>
+            <div style={{ color: M.tx2, marginTop: 8, fontSize: 15 }}>한 줄 입력 → 완성!</div>
+          </div>
+        </div>
+        <div style={{ fontSize: 18, color: M.tx2 }}>상황: 내일 전략회의를 위한 퇴직연금 시장 자료가 필요</div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "실제 사례: 그 외 업무들",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>보고서만이 <span style={{ color: M.or }}>아닙니다</span></div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          {[
+            { task: "PPT 제작", before: "2일", after: "20분", detail: "\"분기 실적 PPT 8장\" → 자동 생성", icon: "📊" },
+            { task: "시장 조사", before: "반나절", after: "5분", detail: "금감원·보험연구원 자동 수집 + 출처 정리", icon: "🔍" },
+            { task: "경쟁사 분석", before: "3시간", after: "10분", detail: "삼성·한화·교보 비교표 자동 생성", icon: "📈" },
+            { task: "컴플라이언스 점검", before: "2시간", after: "3분", detail: "4대 법규 기준 자동 검토 + 수정안", icon: "📋" },
+          ].map(c => (
+            <div key={c.task} style={{ ...card(), borderLeft: `4px solid ${M.or}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                <span style={{ fontSize: 17, fontWeight: 800, color: M.tx }}>{c.icon} {c.task}</span>
+                <span style={{ fontSize: 14, color: M.tx3 }}><span style={{ color: "#fca5a5" }}>{c.before}</span> → <span style={{ color: "#86efac", fontWeight: 700 }}>{c.after}</span></span>
+              </div>
+              <div style={{ fontSize: 14, color: M.tx2 }}>{c.detail}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ fontSize: 17, color: M.tx2, textAlign: "center" }}>반복적이고 구조화된 업무라면 <strong style={{ color: M.or }}>거의 모든 것</strong>을 자동화할 수 있습니다</div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "터미널이란?",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>터미널이란?</div>
+        <div style={{ ...card(), textAlign: "center', padding: '32px" }}>
+          <div style={{ fontSize: 48 }}>⌨️</div>
+          <div style={{ fontSize: 26, fontWeight: 800, color: M.or, marginTop: 12 }}>글자로 컴퓨터에 명령하는 창</div>
+          <div style={{ fontSize: 18, color: M.tx2, marginTop: 10 }}>카카오톡으로 문자 보내듯이, 터미널로 컴퓨터에 명령을 보냅니다</div>
+        </div>
+        {vsBox(
+          "마우스 방식 (GUI)",
+          ["폴더 클릭", "아이콘 더블클릭", "메뉴에서 선택"],
+          "터미널 방식 (CLI)",
+          ["명령어 입력 → Enter", "결과가 텍스트로 나옴", "Claude Code가 여기서 동작"]
+        )}
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "터미널 사용법",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx }}>터미널 사용법 — <span style={{ color: M.or }}>딱 2가지만</span></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+          {conceptCard("1️⃣", "claude 입력 후 Enter", "Claude Code를 실행합니다. 그러면 AI가 준비 완료!", M.or)}
+          {conceptCard("2️⃣", "한글로 원하는 것 입력", "\"퇴직연금 보고서 만들어줘\" 처럼 자연스럽게 입력하면 됩니다", M.ac)}
+        </div>
+        <div style={{ background: M.bg3, borderRadius: 12, padding: 20, fontFamily: "monospace", fontSize: 16, lineHeight: 2, width: "100%" }}>
+          <span style={{ color: "#86efac" }}>$</span> <span style={{ color: M.or }}>claude</span><br/>
+          <span style={{ color: M.tx3 }}>(Claude Code 실행됨)</span><br/>
+          <span style={{ color: "#86efac" }}>{">"}</span> <span style={{ color: M.tx }}>퇴직연금 보고서 만들어줘</span>
+        </div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "오늘 배울 도구 한눈에 보기",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>오늘 배울 <span style={{ color: M.or }}>도구 한눈에</span></div>
+        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>각 도구는 모듈에서 자세히 배웁니다. 지금은 전체 그림만 봐두세요.</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            { icon: "💬", name: "프롬프트", desc: "AI에게 하는 말. 한글로 자연스럽게 지시", color: M.ac },
+            { icon: "📋", name: "CLAUDE.md", desc: "프로젝트 규칙서. 한 번 쓰면 매번 자동 적용", color: M.or },
+            { icon: "🎯", name: "Skill", desc: "재사용 가능한 업무 매뉴얼. 팀 전체 공유", color: "#059669" },
+            { icon: "⌨️", name: "Command", desc: "/명령어 한 마디로 복잡한 워크플로우 실행", color: M.blM },
+            { icon: "⚡", name: "Hook", desc: "자동 안전장치. 개인정보 등 100% 강제 검사", color: "#fbbf24" },
+            { icon: "🔌", name: "MCP", desc: "외부 연결. 웹 검색·Slack·DB 등 능력 추가", color: "#c084fc" },
+          ].map(s => (
+            <div key={s.name} style={{ display: "flex", gap: 14, alignItems: "center", background: M.bg2, borderRadius: 12, padding: "12px 18px", border: `1px solid ${M.bd}`, borderLeft: `4px solid ${s.color}` }}>
+              <span style={{ fontSize: 22 }}>{s.icon}</span>
+              <span style={{ fontWeight: 800, color: s.color, fontSize: 16, minWidth: 100 }}>{s.name}</span>
+              <span style={{ color: M.tx2, fontSize: 15 }}>{s.desc}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "설치하기",
+    render: ({ isMac } = {}) => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>설치하기 — <span style={{ color: M.or }}>처음 한 번만</span></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ ...card(), borderLeft: `4px solid #059669` }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ fontSize: 36 }}>1️⃣</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 20, color: "#059669", marginBottom: 10 }}>Node.js 설치</div>
+                {isMac ? (
+                  <Cmd cmd="brew install node" desc="macOS (Homebrew)" />
+                ) : (
+                  <Cmd cmd="winget install OpenJS.NodeJS.LTS" desc="Windows (winget)" />
+                )}
+                <div style={{ fontSize: 14, color: M.tx3, marginTop: 6 }}>또는 nodejs.org 에서 LTS 버전 직접 다운로드</div>
+              </div>
+            </div>
+          </div>
+          <div style={{ ...card() }}>
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+              <div style={{ fontSize: 36 }}>2️⃣</div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 800, fontSize: 20, color: M.or, marginBottom: 10 }}>Claude Code 설치</div>
+                <Cmd cmd="npm install -g @anthropic-ai/claude-code" desc="터미널에서 실행 (macOS·Windows 동일)" />
+              </div>
+            </div>
+          </div>
+        </div>
+        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>설치는 한 번만! 이후에는 claude 명령어만 입력하면 됩니다</div>
+      </div>
+    ),
+  },
+  {
+    section: "도입",
+    title: "첫 실행",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>첫 실행</div>
+        <div style={{ ...card() }}>
+          <div style={{ fontWeight: 800, fontSize: 20, color: M.or, marginBottom: 16 }}>터미널에서 아래 명령어 입력</div>
+          <Cmd cmd="claude" desc="Claude Code 시작" />
+          <div style={{ marginTop: 16, fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
+            실행하면 인증 화면이 나타납니다.<br/>
+            로그인 방식 또는 API 키로 인증하면 준비 완료!
+          </div>
+        </div>
+        <div style={{ ...card(), borderLeft: `4px solid ${M.ac}` }}>
+          <div style={{ fontSize: 18, color: M.tx, lineHeight: 1.8 }}>
+            인증 후 이렇게 입력해보세요:<br/>
+            <span style={{ color: M.or, fontWeight: 700 }}>"안녕! 자기소개 해줘"</span>
+          </div>
+        </div>
+        <div style={{ fontSize: 16, color: M.tx2, textAlign: "center" }}>다음 슬라이드부터 실제 시연을 보여드립니다</div>
+      </div>
+    ),
+  },
+  // ─── 모듈 1: AI 에이전트 활용 ───
   // ─── 모듈 1: AI 에이전트 활용 ───
   {
     section: "모듈 1",
