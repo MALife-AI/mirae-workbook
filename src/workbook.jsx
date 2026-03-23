@@ -795,6 +795,88 @@ outputs/ 폴더에 저장해줘.`}</Ref>
     ),
   },
 
+  // ── Plan 모드: 설계부터 시작하기 ──
+  {
+    section: "모듈 1",
+    title: "먼저 설계하기: Plan 모드",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>먼저 <span style={{ color: M.or }}>설계</span>하기</div>
+        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px", marginBottom: 4 }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 6 }}>이런 경험 있으신가요?</div>
+          <div style={{ fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
+            "보고서 써줘" → 결과가 기대와 다름 → "다시 써줘" → 또 다름 → 반복...<br/>
+            <strong style={{ color: M.tx }}>원인: AI에게 뭘 만들지 설계를 안 하고 바로 실행시켰기 때문</strong>
+          </div>
+        </div>
+        {conceptCard("🗺️", "Plan 모드 = 설계도 먼저 그리기", "집을 짓기 전에 설계도를 그리듯, AI에게 먼저 계획을 세우게 합니다. 검토 후 실행하면 수정 횟수가 절반으로 줄어듭니다.", M.or)}
+        {vsBox(
+          "바로 실행 (시행착오)",
+          ["결과물이 기대와 다를 수 있음", "수정 요청이 3~5회 반복", "매번 구조가 달라짐"],
+          "설계 후 실행 (한 번에)",
+          ["계획을 먼저 검토·승인", "한 번에 원하는 결과물", "일관된 구조와 품질 보장"]
+        )}
+      </div>
+    ),
+  },
+  {
+    section: "모듈 1",
+    title: "Plan 모드 작동 방식",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>Plan 모드 <span style={{ color: M.or }}>작동 방식</span></div>
+        <div style={{ fontSize: 17, color: M.tx2, textAlign: "center" }}>복잡한 작업은 AI에게 먼저 계획을 세우게 하세요</div>
+        {[
+          { step: "1", title: "기능 정의", desc: "무엇을 만들지 요구사항을 알려줌", icon: "📋", color: M.bl },
+          { step: "2", title: "설계 검토", desc: "AI가 실행 계획을 작성 → 검토 후 승인", icon: "🗺️", color: M.or },
+          { step: "3", title: "자율 실행", desc: "승인된 계획대로 AI가 자동으로 작업", icon: "⚡", color: "#059669" },
+          { step: "4", title: "결과 검증", desc: "완성된 결과물을 확인하고 피드백", icon: "✅", color: M.ac },
+        ].map(s => (
+          <div key={s.step} style={{ display: "flex", gap: 16, alignItems: "center" }}>
+            <div style={{ width: 48, height: 48, borderRadius: "50%", background: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{s.icon}</div>
+            <div style={{ flex: 1, background: M.bg2, borderRadius: 12, padding: "14px 20px", border: `1px solid ${M.bd}` }}>
+              <span style={{ fontWeight: 800, color: M.tx, fontSize: 17 }}>Step {s.step}. {s.title}</span>
+              <span style={{ color: M.tx2, fontSize: 15, marginLeft: 10 }}>{s.desc}</span>
+            </div>
+          </div>
+        ))}
+        <div style={{ ...card({ background: M.bg3 }), textAlign: "center" }}>
+          <div style={{ fontSize: 14, color: M.or, fontWeight: 700 }}>프롬프트 예시</div>
+          <div style={{ fontSize: 15, color: M.tx2, marginTop: 6, fontFamily: "'JetBrains Mono',monospace" }}>"먼저 구현 계획을 세워줘. 계획을 보여주면 내가 검토하고 승인할게"</div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    section: "모듈 1",
+    title: "체험: Plan 모드로 기능 정의하기",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
+        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>체험: <span style={{ color: M.or }}>Plan 모드로 기능 정의</span></div>
+        <div style={{ fontSize: 18, color: M.tx2, textAlign: "center" }}>실제로 설계부터 시작해봅시다</div>
+        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 8 }}>Step 1. Plan 모드 진입</div>
+          <div data-copyable="/plan 퇴직연금 시장 분석 보고서를 만들건데, 어떤 섹션이 필요하고 각 섹션에 무엇을 담을지 설계해줘" title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "'JetBrains Mono',monospace", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+            /plan 퇴직연금 시장 분석 보고서를 만들건데, 어떤 섹션이 필요하고 각 섹션에 무엇을 담을지 설계해줘
+          </div>
+        </div>
+        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#86efac", marginBottom: 8 }}>Step 2. 설계 검토 후 실행</div>
+          <div style={{ fontSize: 16, color: M.tx3, lineHeight: 1.7 }}>
+            AI가 섹션 구조와 내용을 설계하면 검토합니다.<br/>
+            "좋아, 실행해줘" 또는 "2번 섹션은 빼고 진행해줘" 같은 피드백이 가능합니다.
+          </div>
+        </div>
+        <div style={{ ...card({ background: M.bg3, borderLeft: `4px solid ${M.bl}` }), padding: "14px 18px" }}>
+          <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7 }}>
+            <strong style={{ color: M.or }}>핵심:</strong> 이 설계 과정에서 나온 구조를 CLAUDE.md와 Skill에 반영하면,<br/>
+            다음부터는 설계 없이도 같은 품질의 결과물이 나옵니다.
+          </div>
+        </div>
+      </div>
+    ),
+  },
+
   // ── 권한 시스템 ──
   {
     section: "모듈 1",
@@ -925,88 +1007,6 @@ outputs/ 폴더에 저장해줘.`}</Ref>
         </div>
         <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px", textAlign: "center" }}>
           <div style={{ fontSize: 15, color: M.tx2 }}>이 설정은 이 프로젝트 폴더에서만 적용됩니다. 다른 폴더에는 영향 없음.</div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ── Plan 모드: 설계부터 시작하기 ──
-  {
-    section: "모듈 1",
-    title: "먼저 설계하기: Plan 모드",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>먼저 <span style={{ color: M.or }}>설계</span>하기</div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px", marginBottom: 4 }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 6 }}>이런 경험 있으신가요?</div>
-          <div style={{ fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
-            "보고서 써줘" → 결과가 기대와 다름 → "다시 써줘" → 또 다름 → 반복...<br/>
-            <strong style={{ color: M.tx }}>원인: AI에게 뭘 만들지 설계를 안 하고 바로 실행시켰기 때문</strong>
-          </div>
-        </div>
-        {conceptCard("🗺️", "Plan 모드 = 설계도 먼저 그리기", "집을 짓기 전에 설계도를 그리듯, AI에게 먼저 계획을 세우게 합니다. 검토 후 실행하면 수정 횟수가 절반으로 줄어듭니다.", M.or)}
-        {vsBox(
-          "바로 실행 (시행착오)",
-          ["결과물이 기대와 다를 수 있음", "수정 요청이 3~5회 반복", "매번 구조가 달라짐"],
-          "설계 후 실행 (한 번에)",
-          ["계획을 먼저 검토·승인", "한 번에 원하는 결과물", "일관된 구조와 품질 보장"]
-        )}
-      </div>
-    ),
-  },
-  {
-    section: "모듈 1",
-    title: "Plan 모드 작동 방식",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>Plan 모드 <span style={{ color: M.or }}>작동 방식</span></div>
-        <div style={{ fontSize: 17, color: M.tx2, textAlign: "center" }}>복잡한 작업은 AI에게 먼저 계획을 세우게 하세요</div>
-        {[
-          { step: "1", title: "기능 정의", desc: "무엇을 만들지 요구사항을 알려줌", icon: "📋", color: M.bl },
-          { step: "2", title: "설계 검토", desc: "AI가 실행 계획을 작성 → 검토 후 승인", icon: "🗺️", color: M.or },
-          { step: "3", title: "자율 실행", desc: "승인된 계획대로 AI가 자동으로 작업", icon: "⚡", color: "#059669" },
-          { step: "4", title: "결과 검증", desc: "완성된 결과물을 확인하고 피드백", icon: "✅", color: M.ac },
-        ].map(s => (
-          <div key={s.step} style={{ display: "flex", gap: 16, alignItems: "center" }}>
-            <div style={{ width: 48, height: 48, borderRadius: "50%", background: s.color, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0 }}>{s.icon}</div>
-            <div style={{ flex: 1, background: M.bg2, borderRadius: 12, padding: "14px 20px", border: `1px solid ${M.bd}` }}>
-              <span style={{ fontWeight: 800, color: M.tx, fontSize: 17 }}>Step {s.step}. {s.title}</span>
-              <span style={{ color: M.tx2, fontSize: 15, marginLeft: 10 }}>{s.desc}</span>
-            </div>
-          </div>
-        ))}
-        <div style={{ ...card({ background: M.bg3 }), textAlign: "center" }}>
-          <div style={{ fontSize: 14, color: M.or, fontWeight: 700 }}>프롬프트 예시</div>
-          <div style={{ fontSize: 15, color: M.tx2, marginTop: 6, fontFamily: "'JetBrains Mono',monospace" }}>"먼저 구현 계획을 세워줘. 계획을 보여주면 내가 검토하고 승인할게"</div>
-        </div>
-      </div>
-    ),
-  },
-  {
-    section: "모듈 1",
-    title: "체험: Plan 모드로 기능 정의하기",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, textAlign: "center" }}>체험: <span style={{ color: M.or }}>Plan 모드로 기능 정의</span></div>
-        <div style={{ fontSize: 18, color: M.tx2, textAlign: "center" }}>실제로 설계부터 시작해봅시다</div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 8 }}>Step 1. Plan 모드 진입</div>
-          <div data-copyable="/plan 퇴직연금 시장 분석 보고서를 만들건데, 어떤 섹션이 필요하고 각 섹션에 무엇을 담을지 설계해줘" title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "'JetBrains Mono',monospace", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            /plan 퇴직연금 시장 분석 보고서를 만들건데, 어떤 섹션이 필요하고 각 섹션에 무엇을 담을지 설계해줘
-          </div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#86efac", marginBottom: 8 }}>Step 2. 설계 검토 후 실행</div>
-          <div style={{ fontSize: 16, color: M.tx3, lineHeight: 1.7 }}>
-            AI가 섹션 구조와 내용을 설계하면 검토합니다.<br/>
-            "좋아, 실행해줘" 또는 "2번 섹션은 빼고 진행해줘" 같은 피드백이 가능합니다.
-          </div>
-        </div>
-        <div style={{ ...card({ background: M.bg3, borderLeft: `4px solid ${M.bl}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7 }}>
-            <strong style={{ color: M.or }}>핵심:</strong> 이 설계 과정에서 나온 구조를 CLAUDE.md와 Skill에 반영하면,<br/>
-            다음부터는 설계 없이도 같은 품질의 결과물이 나옵니다.
-          </div>
         </div>
       </div>
     ),
