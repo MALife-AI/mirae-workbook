@@ -73,7 +73,8 @@ fn find_git_bash() -> String {
     // 2. where git으로 찾기
     if let Ok(out) = Command::new("cmd").args(["/C", "where", "git"]).output() {
         if out.status.success() {
-            let git_path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            let git_path = String::from_utf8_lossy(&out.stdout)
+                .lines().next().unwrap_or("").trim().to_string();
             // git.exe → 상위 디렉토리/bin/bash.exe
             if let Some(parent) = std::path::Path::new(&git_path).parent().and_then(|p| p.parent()) {
                 let bash = parent.join("bin").join("bash.exe");
@@ -88,7 +89,7 @@ fn find_git_bash() -> String {
     ] {
         if std::path::Path::new(path).exists() { return path.to_string(); }
     }
-    // 못 찾으면 기본 경로 반환
+    // 못 찾으면 기본 경로 반환 (trim 보장)
     "C:\\Program Files\\Git\\bin\\bash.exe".to_string()
 }
 
