@@ -742,16 +742,33 @@ where git >nul 2>&1
 if %ERRORLEVEL% NEQ 0 (
     echo [1/3] Git 설치 중... (Claude Code에 필요합니다)
     echo.
-    winget install --id Git.Git --accept-package-agreements --accept-source-agreements
+    :: 방법1: winget
+    winget install --id Git.Git --accept-package-agreements --accept-source-agreements >nul 2>&1
+    where git >nul 2>&1
     if %ERRORLEVEL% NEQ 0 (
-        echo Git 자동 설치 실패. https://git-scm.com/downloads/win 에서 직접 설치해주세요.
+        echo      winget 실패. 직접 다운로드합니다...
+        echo      Git 다운로드 중... (잠시 기다려주세요)
+        :: 방법2: PowerShell로 직접 다운로드 + 사일런트 설치
+        powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile '%TEMP%\git-install.exe'"
+        if exist "%TEMP%\git-install.exe" (
+            echo      Git 설치 중...
+            "%TEMP%\git-install.exe" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
+            del "%TEMP%\git-install.exe" >nul 2>&1
+        ) else (
+            echo      다운로드 실패. https://git-scm.com/downloads/win 에서 직접 설치해주세요.
+            pause
+            exit /b 1
+        )
+    )
+    :: 설치 후 PATH 반영
+    set "PATH=%PATH%;C:\Program Files\Git\bin;C:\Program Files\Git\cmd"
+    where git >nul 2>&1
+    if %ERRORLEVEL% NEQ 0 (
+        echo      Git 설치에 실패했습니다. https://git-scm.com/downloads/win 에서 직접 설치해주세요.
         pause
         exit /b 1
     )
-    echo.
-    echo Git 설치 완료!
-    :: 새로 설치된 Git PATH 반영
-    set "PATH=%PATH%;C:\Program Files\Git\bin;C:\Program Files\Git\cmd"
+    echo      Git 설치 완료!
 ) else (
     echo [1/3] Git 이미 설치됨 ✓
 )
