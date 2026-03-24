@@ -540,12 +540,20 @@ fn base64_encode(data: &[u8]) -> String {
 
 #[tauri::command]
 fn check_node() -> Result<String, String> {
+    let path = expanded_path();
     let output = command_with_path("node").arg("--version").output();
     match output {
         Ok(out) if out.status.success() => {
             Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
         }
-        _ => Err("Node.js가 설치되어 있지 않습니다".to_string()),
+        Ok(out) => Err(format!(
+            "Node.js 실행 실패 (exit {}). PATH: {}",
+            out.status, &path[..path.len().min(200)]
+        )),
+        Err(e) => Err(format!(
+            "Node.js를 찾을 수 없습니다: {}. PATH: {}",
+            e, &path[..path.len().min(200)]
+        )),
     }
 }
 
@@ -564,12 +572,31 @@ fn check_claude() -> Result<String, String> {
 fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
+        // 먼저 winget 시도
         let output = command_with_path("winget")
             .args(["install", "--id", "OpenJS.NodeJS.LTS", "--accept-package-agreements", "--accept-source-agreements"])
             .output();
         match output {
-            Ok(out) if out.status.success() => Ok("Node.js 설치 완료!".to_string()),
-            _ => Err("자동 설치 실패. https://nodejs.org 에서 직접 설치해주세요.".to_string()),
+            Ok(out) if out.status.success() => return Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
+            _ => {}
+        }
+        // winget 실패 시 powershell로 직접 다운로드
+        let ps_cmd = r#"
+            $url = 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi'
+            $out = "$env:TEMP\node-install.msi"
+            Invoke-WebRequest -Uri $url -OutFile $out
+            Start-Process msiexec.exe -ArgumentList "/i `"$out`" /qn" -Wait -Verb RunAs
+        "#;
+        let output2 = command_with_path("powershell")
+            .args(["-ExecutionPolicy", "Bypass", "-Command", ps_cmd])
+            .output();
+        match output2 {
+            Ok(out) if out.status.success() => Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
+            Ok(out) => Err(format!(
+                "자동 설치 실패: {}. https://nodejs.org 에서 직접 설치해주세요.",
+                String::from_utf8_lossy(&out.stderr)
+            )),
+            Err(e) => Err(format!("설치 오류: {}. https://nodejs.org 에서 직접 설치해주세요.", e)),
         }
     }
 
