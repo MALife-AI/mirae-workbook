@@ -24,7 +24,12 @@ fn expanded_path() -> String {
     #[cfg(target_os = "windows")]
     {
         let home = std::env::var("USERPROFILE").unwrap_or_default();
-        let extra = format!("{}\\.cargo\\bin;{}\\AppData\\Roaming\\npm", home, home);
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
+        let extra = format!(
+            "{}\\AppData\\Roaming\\npm;{}\\.cargo\\bin;{}\\nodejs;{}\\nodejs",
+            home, home, program_files,
+            std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| "C:\\Program Files (x86)".to_string())
+        );
         format!("{};{}", extra, base)
     }
 
