@@ -559,18 +559,39 @@ fn check_node() -> Result<String, String> {
 #[tauri::command]
 fn check_claude() -> Result<String, String> {
     #[cfg(target_os = "windows")]
-    let output = command_with_path("cmd")
-        .args(["/C", "claude", "--version"])
-        .output();
+    {
+        // 1차: cmd /C claude
+        let output = command_with_path("cmd")
+            .args(["/C", "claude", "--version"])
+            .output();
+        if let Ok(out) = &output {
+            if out.status.success() {
+                return Ok(String::from_utf8_lossy(&out.stdout).trim().to_string());
+            }
+        }
+        // 2차: 직접 경로 시도
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let direct = format!("{}\\AppData\\Roaming\\npm\\claude.cmd", home);
+        let output2 = Command::new("cmd")
+            .args(["/C", &direct, "--version"])
+            .output();
+        match output2 {
+            Ok(out) if out.status.success() => {
+                Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+            }
+            _ => Err("Claude Code가 설치되어 있지 않습니다".to_string()),
+        }
+    }
 
     #[cfg(not(target_os = "windows"))]
-    let output = command_with_path("claude").arg("--version").output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    {
+        let output = command_with_path("claude").arg("--version").output();
+        match output {
+            Ok(out) if out.status.success() => {
+                Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+            }
+            _ => Err("Claude Code가 설치되어 있지 않습니다".to_string()),
         }
-        _ => Err("Claude Code가 설치되어 있지 않습니다".to_string()),
     }
 }
 
@@ -643,7 +664,24 @@ fn install_claude_code() -> Result<String, String> {
         .output();
 
     match output {
-        Ok(out) if out.status.success() => Ok("Claude Code 설치 완료!".to_string()),
+        Ok(out) if out.status.success() => {
+            // 설치 후 바로 확인 — 실제로 실행 가능한지 체크
+            #[cfg(target_os = "windows")]
+            {
+                let verify = command_with_path("cmd")
+                    .args(["/C", "claude", "--version"])
+                    .output();
+                match verify {
+                    Ok(v) if v.status.success() => Ok(format!(
+                        "Claude Code 설치 완료! ({})",
+                        String::from_utf8_lossy(&v.stdout).trim()
+                    )),
+                    _ => Ok("Claude Code 설치 완료! 앱을 재시작하면 인식됩니다.".to_string()),
+                }
+            }
+            #[cfg(not(target_os = "windows"))]
+            Ok("Claude Code 설치 완료!".to_string())
+        }
         Ok(out) => Err(format!(
             "설치 실패: {}{}",
             String::from_utf8_lossy(&out.stdout),
