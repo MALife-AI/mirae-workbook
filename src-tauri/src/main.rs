@@ -358,10 +358,11 @@ fn run_shell(command: String) -> Result<String, String> {
 
 #[tauri::command]
 fn start_claude_login() -> Result<String, String> {
-    // claude login을 백그라운드로 스폰 (브라우저가 열림)
+    // claude login을 별도 창에서 실행 (브라우저가 열림)
     #[cfg(target_os = "windows")]
     let result = command_with_path("cmd")
-        .args(["/C", "start", "", "cmd", "/C", "claude", "login"])
+        .args(["/C", "start", "Claude 로그인", "cmd", "/K",
+            "echo ========================================= && echo   Claude Code 로그인 && echo ========================================= && echo. && echo 브라우저가 열립니다. 로그인 후 이 창으로 돌아오세요. && echo. && claude login && echo. && echo ========================================= && echo   로그인 완료! 이 창을 닫아주세요. && echo ========================================="])
         .spawn();
 
     #[cfg(not(target_os = "windows"))]
@@ -618,9 +619,10 @@ fn check_claude() -> Result<String, String> {
 fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        // 먼저 winget 시도
-        let output = command_with_path("winget")
-            .args(["install", "--id", "OpenJS.NodeJS.LTS", "--accept-package-agreements", "--accept-source-agreements"])
+        // 먼저 winget 시도 (보이는 창)
+        let output = command_with_path("cmd")
+            .args(["/C", "start", "/wait", "Node.js 설치", "cmd", "/C",
+                "echo ========================================= && echo   Node.js 설치 중... && echo ========================================= && echo. && winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements && echo. && echo 설치 완료! && timeout /t 3 >nul"])
             .output();
         match output {
             Ok(out) if out.status.success() => return Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
@@ -671,10 +673,12 @@ fn install_node() -> Result<String, String> {
 
 #[tauri::command]
 fn install_claude_code() -> Result<String, String> {
-    // Windows에서 npm은 .cmd 파일이라 cmd /C로 감싸야 함
+    // Windows: 별도 터미널 창에서 설치 (진행 상황이 보임)
+    // 설치 완료까지 대기 (start /wait)
     #[cfg(target_os = "windows")]
     let output = command_with_path("cmd")
-        .args(["/C", "npm", "install", "-g", "@anthropic-ai/claude-code"])
+        .args(["/C", "start", "/wait", "Claude Code 설치", "cmd", "/C",
+            "echo ========================================= && echo   Claude Code 설치 중... && echo ========================================= && echo. && npm install -g @anthropic-ai/claude-code && echo. && echo ========================================= && echo   설치 완료! 이 창은 자동으로 닫힙니다. && echo ========================================= && timeout /t 3 >nul"])
         .output();
 
     #[cfg(not(target_os = "windows"))]
