@@ -3801,10 +3801,19 @@ export default function App() {
   const [codeFontSize, setCodeFontSize] = useState(18);
   const [darkMode, setDarkMode] = useState(true);
   const [confirmAction, setConfirmAction] = useState(null); // null | "reset"
+  const [fullscreen, setFullscreen] = useState(false);
   const [sidebarW, setSidebarW] = useState(220);
   const sidebarDrag = useRef(null);
   const [notice, setNotice] = useState("");
   useEffect(() => { if (notice) { const t = setTimeout(() => setNotice(""), 3000); return () => clearTimeout(t); } }, [notice]);
+
+  // Esc로 전체화면 해제
+  useEffect(() => {
+    if (!fullscreen) return;
+    const handler = (e) => { if (e.key === "Escape") setFullscreen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [fullscreen]);
   // 테마 전환 시 M 업데이트
   M = darkMode ? DARK : LIGHT;
   const ptyIdRef = useRef(null);
@@ -4148,7 +4157,51 @@ export default function App() {
         code{font-size:${codeFontSize}px !important}
         textarea{font-size:${codeFontSize}px !important}
         ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:${M.bd};border-radius:3px}
+        /* 슬라이드 글씨 확대 — px 단위 폰트도 전부 키움 */
+        .slide-content-scaled { zoom: 1.25; }
+        /* 전체화면 모드 — 더 크게 */
+        .fullscreen-slide .slide-content-scaled { zoom: 1.6; }
       `}</style>
+
+      {/* ─── 전체화면 오버레이 ─── */}
+      {fullscreen && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: M.bg, zIndex: 9999,
+          display: "flex", flexDirection: "column",
+        }}>
+          {/* 전체화면 헤더 */}
+          <div style={{
+            padding: "12px 24px", display: "flex", alignItems: "center", gap: 12,
+            background: M.bg3, borderBottom: `1px solid ${M.bd}`, flexShrink: 0,
+          }}>
+            <div style={{ background: M.or + "22", border: `1px solid ${M.or}44`, borderRadius: 6, padding: "2px 10px", fontSize: 16, fontWeight: 700, color: M.or }}>
+              {slide.section}
+            </div>
+            <div style={{ fontWeight: 700, fontSize: 18, color: M.tx, flex: 1 }}>{slide.title}</div>
+            <span style={{ color: M.tx3, fontSize: 16, fontFamily: "monospace" }}>{page + 1} / {TOTAL}</span>
+            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}
+              style={{ background: M.bg2, color: page === 0 ? M.tx3 : M.tx, border: `1px solid ${M.bd}`, borderRadius: 8, padding: "8px 18px", cursor: page === 0 ? "default" : "pointer", fontSize: 18, fontWeight: 700 }}>
+              ←
+            </button>
+            <button onClick={() => setPage(p => Math.min(TOTAL - 1, p + 1))} disabled={page === TOTAL - 1}
+              style={{ background: page === TOTAL - 1 ? M.bg2 : M.or, color: page === TOTAL - 1 ? M.tx3 : "#fff", border: "none", borderRadius: 8, padding: "8px 18px", cursor: page === TOTAL - 1 ? "default" : "pointer", fontSize: 18, fontWeight: 700 }}>
+              →
+            </button>
+            <button onClick={() => setFullscreen(false)}
+              style={{ background: "#fca5a533", color: "#fca5a5", border: `1px solid #fca5a544`, borderRadius: 8, padding: "8px 16px", cursor: "pointer", fontSize: 16, fontWeight: 700 }}>
+              ✕ 닫기
+            </button>
+          </div>
+
+          {/* 전체화면 슬라이드 콘텐츠 */}
+          <div className="fullscreen-slide" style={{ flex: 1, overflow: "auto", padding: "24px 48px", display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
+            <div className="slide-content-scaled" style={{ width: "100%", maxWidth: 1200 }}>
+              {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac })}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ─── SIDEBAR ─── */}
       <nav style={{ width: sidebarW, minWidth: 140, maxWidth: 500, background: M.bg3, borderRight: `1px solid ${M.bd}`, display: "flex", flexDirection: "column", padding: "16px 0", position: "relative", flexShrink: 0 }}>
@@ -4273,6 +4326,10 @@ export default function App() {
             {slide.title}
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0 }}>
+            <button onClick={() => setFullscreen(true)} title="전체화면 (F5)"
+              style={{ background: "none", border: `1px solid ${M.bd}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 15, color: M.tx3 }}>
+              ⛶
+            </button>
             <button onClick={() => setDarkMode(d => !d)}
               style={{ background: "none", border: `1px solid ${M.bd}`, borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 15, color: M.tx3 }}>
               {darkMode ? "☀️" : "🌙"}
@@ -4352,7 +4409,7 @@ export default function App() {
                 }
               }}
             >
-              <div ref={slideContentRef} style={{ width: slideScale < 1 ? `${100 / slideScale}%` : "100%", maxWidth: slideScale < 1 ? 900 / slideScale : 900, transform: `scale(${slideScale})`, transformOrigin: "top center", fontSize: "0.92em" }}>
+              <div ref={slideContentRef} className="slide-content-scaled" style={{ width: slideScale < 1 ? `${100 / slideScale}%` : "100%", maxWidth: slideScale < 1 ? 900 / slideScale : 900, transform: `scale(${slideScale})`, transformOrigin: "top center" }}>
                 {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac })}
               </div>
             </div>
