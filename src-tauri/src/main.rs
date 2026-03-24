@@ -359,6 +359,12 @@ fn run_shell(command: String) -> Result<String, String> {
 #[tauri::command]
 fn start_claude_login() -> Result<String, String> {
     // claude login을 백그라운드로 스폰 (브라우저가 열림)
+    #[cfg(target_os = "windows")]
+    let result = command_with_path("cmd")
+        .args(["/C", "start", "", "cmd", "/C", "claude", "login"])
+        .spawn();
+
+    #[cfg(not(target_os = "windows"))]
     let result = command_with_path("sh")
         .args(["-c", "claude login &"])
         .spawn();
@@ -371,6 +377,12 @@ fn start_claude_login() -> Result<String, String> {
 
 #[tauri::command]
 fn check_auth_status() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let output = command_with_path("cmd")
+        .args(["/C", "claude", "auth", "status"])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let output = command_with_path("claude")
         .args(["auth", "status"])
         .output();
@@ -394,6 +406,13 @@ fn check_auth_status() -> Result<String, String> {
 fn run_claude(prompt: String) -> Result<String, String> {
     let dir = project_dir();
 
+    #[cfg(target_os = "windows")]
+    let output = command_with_path("cmd")
+        .args(["/C", "claude", "-p", &prompt])
+        .current_dir(&dir)
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let output = command_with_path("claude")
         .args(["-p", &prompt])
         .current_dir(&dir)
