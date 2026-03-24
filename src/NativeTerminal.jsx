@@ -88,6 +88,8 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
             TERM: "xterm-256color",
             LANG: "ko_KR.UTF-8",
             ...(expandedPath ? { PATH: expandedPath } : {}),
+            // Windows: Claude Code에 Git Bash 경로 필요
+            ...(!isMac ? { CLAUDE_CODE_GIT_BASH_PATH: "C:\\Program Files\\Git\\bin\\bash.exe" } : {}),
           },
         });
 

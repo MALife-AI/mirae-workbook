@@ -25,10 +25,10 @@ fn expanded_path() -> String {
     {
         let home = std::env::var("USERPROFILE").unwrap_or_default();
         let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
+        let pf_x86 = std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| "C:\\Program Files (x86)".to_string());
         let extra = format!(
-            "{}\\AppData\\Roaming\\npm;{}\\.cargo\\bin;{}\\nodejs;{}\\nodejs",
-            home, home, program_files,
-            std::env::var("ProgramFiles(x86)").unwrap_or_else(|_| "C:\\Program Files (x86)".to_string())
+            "{}\\AppData\\Roaming\\npm;{}\\.cargo\\bin;{}\\nodejs;{}\\nodejs;{}\\Git\\bin;{}\\Git\\cmd;{}\\Git\\bin;{}\\Git\\cmd",
+            home, home, program_files, pf_x86, program_files, program_files, pf_x86, pf_x86
         );
         format!("{};{}", extra, base)
     }
@@ -360,10 +360,13 @@ fn run_shell(command: String) -> Result<String, String> {
 fn start_claude_login() -> Result<String, String> {
     // claude login을 별도 창에서 실행 (브라우저가 열림)
     #[cfg(target_os = "windows")]
-    let result = command_with_path("cmd")
-        .args(["/C", "start", "Claude 로그인", "cmd", "/K",
-            "echo ========================================= && echo   Claude Code 로그인 && echo ========================================= && echo. && echo 브라우저가 열립니다. 로그인 후 이 창으로 돌아오세요. && echo. && claude login && echo. && echo ========================================= && echo   로그인 완료! 이 창을 닫아주세요. && echo ========================================="])
-        .spawn();
+    let result = {
+        let mut cmd = command_with_path("cmd");
+        cmd.env("CLAUDE_CODE_GIT_BASH_PATH", "C:\\Program Files\\Git\\bin\\bash.exe");
+        cmd.args(["/C", "start", "Claude 로그인", "cmd", "/K",
+            "echo ========================================= && echo   Claude Code 로그인 && echo ========================================= && echo. && echo 브라우저가 열립니다. 로그인 후 이 창으로 돌아오세요. && echo. && set CLAUDE_CODE_GIT_BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe && claude login && echo. && echo ========================================= && echo   로그인 완료! 이 창을 닫아주세요. && echo ========================================="])
+            .spawn()
+    };
 
     #[cfg(not(target_os = "windows"))]
     let result = command_with_path("sh")
@@ -673,13 +676,29 @@ fn install_node() -> Result<String, String> {
 
 #[tauri::command]
 fn install_claude_code() -> Result<String, String> {
-    // Windows: 별도 터미널 창에서 설치 (진행 상황이 보임)
-    // 설치 완료까지 대기 (start /wait)
+    // Windows: Git Bash 확인 → 없으면 Git 먼저 설치 → Claude Code 설치
     #[cfg(target_os = "windows")]
-    let output = command_with_path("cmd")
-        .args(["/C", "start", "/wait", "Claude Code 설치", "cmd", "/C",
-            "echo ========================================= && echo   Claude Code 설치 중... && echo ========================================= && echo. && npm install -g @anthropic-ai/claude-code && echo. && echo ========================================= && echo   설치 완료! 이 창은 자동으로 닫힙니다. && echo ========================================= && timeout /t 3 >nul"])
-        .output();
+    let output = {
+        // Git Bash 존재 확인
+        let git_check = Command::new("cmd")
+            .args(["/C", "where", "git"])
+            .output();
+        let has_git = matches!(&git_check, Ok(out) if out.status.success());
+
+        if !has_git {
+            // Git 설치 (winget)
+            let _ = command_with_path("cmd")
+                .args(["/C", "start", "/wait", "Git 설치", "cmd", "/C",
+                    "echo ========================================= && echo   Git 설치 중... (Claude Code에 필요) && echo ========================================= && echo. && winget install --id Git.Git --accept-package-agreements --accept-source-agreements && echo. && echo Git 설치 완료! && timeout /t 3 >nul"])
+                .output();
+        }
+
+        // Claude Code 설치
+        command_with_path("cmd")
+            .args(["/C", "start", "/wait", "Claude Code 설치", "cmd", "/C",
+                "echo ========================================= && echo   Claude Code 설치 중... && echo ========================================= && echo. && npm install -g @anthropic-ai/claude-code && echo. && echo ========================================= && echo   설치 완료! 이 창은 자동으로 닫힙니다. && echo ========================================= && timeout /t 3 >nul"])
+            .output()
+    };
 
     #[cfg(not(target_os = "windows"))]
     let output = command_with_path("npm")
