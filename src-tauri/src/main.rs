@@ -63,6 +63,35 @@ fn expanded_path() -> String {
     }
 }
 
+/// Windows: Git Bash 경로를 동적으로 찾기
+#[cfg(target_os = "windows")]
+fn find_git_bash() -> String {
+    // 1. 환경변수에 이미 설정되어 있으면 사용
+    if let Ok(p) = std::env::var("CLAUDE_CODE_GIT_BASH_PATH") {
+        if std::path::Path::new(&p).exists() { return p; }
+    }
+    // 2. where git으로 찾기
+    if let Ok(out) = Command::new("cmd").args(["/C", "where", "git"]).output() {
+        if out.status.success() {
+            let git_path = String::from_utf8_lossy(&out.stdout).trim().to_string();
+            // git.exe → 상위 디렉토리/bin/bash.exe
+            if let Some(parent) = std::path::Path::new(&git_path).parent().and_then(|p| p.parent()) {
+                let bash = parent.join("bin").join("bash.exe");
+                if bash.exists() { return bash.to_string_lossy().to_string(); }
+            }
+        }
+    }
+    // 3. 주요 경로 직접 확인
+    for path in &[
+        "C:\\Program Files\\Git\\bin\\bash.exe",
+        "C:\\Program Files (x86)\\Git\\bin\\bash.exe",
+    ] {
+        if std::path::Path::new(path).exists() { return path.to_string(); }
+    }
+    // 못 찾으면 기본 경로 반환
+    "C:\\Program Files\\Git\\bin\\bash.exe".to_string()
+}
+
 /// Command에 확장된 PATH를 설정
 fn command_with_path(program: &str) -> Command {
     let mut cmd = Command::new(program);
@@ -361,10 +390,29 @@ fn start_claude_login() -> Result<String, String> {
     // claude login을 별도 창에서 실행 (브라우저가 열림)
     #[cfg(target_os = "windows")]
     let result = {
-        let mut cmd = command_with_path("cmd");
-        cmd.env("CLAUDE_CODE_GIT_BASH_PATH", "C:\\Program Files\\Git\\bin\\bash.exe");
-        cmd.args(["/C", "start", "Claude 로그인", "cmd", "/K",
-            "echo ========================================= && echo   Claude Code 로그인 && echo ========================================= && echo. && echo 브라우저가 열립니다. 로그인 후 이 창으로 돌아오세요. && echo. && set CLAUDE_CODE_GIT_BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe && claude login && echo. && echo ========================================= && echo   로그인 완료! 이 창을 닫아주세요. && echo ========================================="])
+        let bash_path = find_git_bash();
+        let expanded = expanded_path();
+        let script = format!(
+            r#"@echo off
+chcp 65001 >nul
+set "PATH={}"
+set "CLAUDE_CODE_GIT_BASH_PATH={}"
+echo =========================================
+echo   Claude Code 로그인
+echo =========================================
+echo.
+echo 브라우저가 열립니다. 로그인 후 이 창으로 돌아오세요.
+echo.
+call claude login
+echo.
+echo =========================================
+echo   로그인 완료! 이 창을 닫아주세요.
+echo =========================================
+pause"#, expanded, bash_path);
+        let bat_path = std::env::temp_dir().join("claude_login.bat");
+        let _ = fs::write(&bat_path, &script);
+        Command::new("cmd")
+            .args(["/C", "start", "", &bat_path.to_string_lossy().to_string()])
             .spawn()
     };
 
@@ -622,31 +670,33 @@ fn check_claude() -> Result<String, String> {
 fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        // 먼저 winget 시도 (보이는 창)
+        // Windows 올인원: bat 파일로 Node.js 설치
+        let script = r#"@echo off
+echo =========================================
+echo   Node.js 설치
+echo =========================================
+echo.
+echo [1/2] winget으로 설치 시도 중...
+winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements
+if %ERRORLEVEL% NEQ 0 (
+    echo.
+    echo [1/2] winget 실패. 직접 다운로드합니다...
+    powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile '%TEMP%\node-install.msi'"
+    msiexec /i "%TEMP%\node-install.msi" /qn
+)
+echo.
+echo =========================================
+echo   Node.js 설치 완료! 이 창은 자동으로 닫힙니다.
+echo =========================================
+timeout /t 3 >nul
+"#;
+        let bat_path = std::env::temp_dir().join("install_node.bat");
+        let _ = fs::write(&bat_path, script);
         let output = command_with_path("cmd")
-            .args(["/C", "start", "/wait", "Node.js 설치", "cmd", "/C",
-                "echo ========================================= && echo   Node.js 설치 중... && echo ========================================= && echo. && winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements && echo. && echo 설치 완료! && timeout /t 3 >nul"])
+            .args(["/C", "start", "/wait", "", &bat_path.to_string_lossy().to_string()])
             .output();
         match output {
-            Ok(out) if out.status.success() => return Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
-            _ => {}
-        }
-        // winget 실패 시 powershell로 직접 다운로드
-        let ps_cmd = r#"
-            $url = 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi'
-            $out = "$env:TEMP\node-install.msi"
-            Invoke-WebRequest -Uri $url -OutFile $out
-            Start-Process msiexec.exe -ArgumentList "/i `"$out`" /qn" -Wait -Verb RunAs
-        "#;
-        let output2 = command_with_path("powershell")
-            .args(["-ExecutionPolicy", "Bypass", "-Command", ps_cmd])
-            .output();
-        match output2 {
-            Ok(out) if out.status.success() => Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
-            Ok(out) => Err(format!(
-                "자동 설치 실패: {}. https://nodejs.org 에서 직접 설치해주세요.",
-                String::from_utf8_lossy(&out.stderr)
-            )),
+            Ok(_) => Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
             Err(e) => Err(format!("설치 오류: {}. https://nodejs.org 에서 직접 설치해주세요.", e)),
         }
     }
@@ -676,60 +726,112 @@ fn install_node() -> Result<String, String> {
 
 #[tauri::command]
 fn install_claude_code() -> Result<String, String> {
-    // Windows: Git Bash 확인 → 없으면 Git 먼저 설치 → Claude Code 설치
     #[cfg(target_os = "windows")]
-    let output = {
-        // Git Bash 존재 확인
-        let git_check = Command::new("cmd")
-            .args(["/C", "where", "git"])
+    {
+        // Windows 올인원: Git + Claude Code 한번에 설치
+        let script = r#"@echo off
+chcp 65001 >nul
+echo =========================================
+echo   Claude Code 올인원 설치
+echo =========================================
+echo.
+
+:: [1] Git 확인
+where git >nul 2>&1
+if %ERRORLEVEL% NEQ 0 (
+    echo [1/3] Git 설치 중... (Claude Code에 필요합니다)
+    echo.
+    winget install --id Git.Git --accept-package-agreements --accept-source-agreements
+    if %ERRORLEVEL% NEQ 0 (
+        echo Git 자동 설치 실패. https://git-scm.com/downloads/win 에서 직접 설치해주세요.
+        pause
+        exit /b 1
+    )
+    echo.
+    echo Git 설치 완료!
+    :: 새로 설치된 Git PATH 반영
+    set "PATH=%PATH%;C:\Program Files\Git\bin;C:\Program Files\Git\cmd"
+) else (
+    echo [1/3] Git 이미 설치됨 ✓
+)
+echo.
+
+:: [2] Claude Code 설치
+echo [2/3] Claude Code 설치 중...
+echo.
+call npm install -g @anthropic-ai/claude-code
+if %ERRORLEVEL% NEQ 0 (
+    echo Claude Code 설치 실패.
+    pause
+    exit /b 1
+)
+echo.
+echo Claude Code 설치 완료!
+echo.
+
+:: [3] Git Bash 경로 확인
+echo [3/3] Git Bash 경로 확인 중...
+set "BASH_PATH="
+if exist "C:\Program Files\Git\bin\bash.exe" (
+    set "BASH_PATH=C:\Program Files\Git\bin\bash.exe"
+)
+if exist "C:\Program Files (x86)\Git\bin\bash.exe" (
+    set "BASH_PATH=C:\Program Files (x86)\Git\bin\bash.exe"
+)
+if defined BASH_PATH (
+    echo Git Bash 경로: %BASH_PATH%
+    setx CLAUDE_CODE_GIT_BASH_PATH "%BASH_PATH%" >nul 2>&1
+    echo CLAUDE_CODE_GIT_BASH_PATH 환경변수 설정 완료!
+) else (
+    echo [경고] Git Bash를 찾을 수 없습니다.
+    echo 수동으로 환경변수를 설정하세요:
+    echo   CLAUDE_CODE_GIT_BASH_PATH=C:\Program Files\Git\bin\bash.exe
+)
+
+echo.
+echo =========================================
+echo   설치 완료! 이 창은 자동으로 닫힙니다.
+echo =========================================
+timeout /t 5 >nul
+"#;
+        let bat_path = std::env::temp_dir().join("install_claude.bat");
+        let _ = fs::write(&bat_path, script);
+        let output = command_with_path("cmd")
+            .args(["/C", "start", "/wait", "", &bat_path.to_string_lossy().to_string()])
             .output();
-        let has_git = matches!(&git_check, Ok(out) if out.status.success());
-
-        if !has_git {
-            // Git 설치 (winget)
-            let _ = command_with_path("cmd")
-                .args(["/C", "start", "/wait", "Git 설치", "cmd", "/C",
-                    "echo ========================================= && echo   Git 설치 중... (Claude Code에 필요) && echo ========================================= && echo. && winget install --id Git.Git --accept-package-agreements --accept-source-agreements && echo. && echo Git 설치 완료! && timeout /t 3 >nul"])
-                .output();
-        }
-
-        // Claude Code 설치
-        command_with_path("cmd")
-            .args(["/C", "start", "/wait", "Claude Code 설치", "cmd", "/C",
-                "echo ========================================= && echo   Claude Code 설치 중... && echo ========================================= && echo. && npm install -g @anthropic-ai/claude-code && echo. && echo ========================================= && echo   설치 완료! 이 창은 자동으로 닫힙니다. && echo ========================================= && timeout /t 3 >nul"])
-            .output()
-    };
-
-    #[cfg(not(target_os = "windows"))]
-    let output = command_with_path("npm")
-        .args(["install", "-g", "@anthropic-ai/claude-code"])
-        .output();
-
-    match output {
-        Ok(out) if out.status.success() => {
-            // 설치 후 바로 확인 — 실제로 실행 가능한지 체크
-            #[cfg(target_os = "windows")]
-            {
+        match output {
+            Ok(_) => {
+                // 설치 후 확인
                 let verify = command_with_path("cmd")
                     .args(["/C", "claude", "--version"])
+                    .env("CLAUDE_CODE_GIT_BASH_PATH", find_git_bash())
                     .output();
                 match verify {
                     Ok(v) if v.status.success() => Ok(format!(
                         "Claude Code 설치 완료! ({})",
                         String::from_utf8_lossy(&v.stdout).trim()
                     )),
-                    _ => Ok("Claude Code 설치 완료! 앱을 재시작하면 인식됩니다.".to_string()),
+                    _ => Ok("설치 완료! 앱을 재시작하면 인식됩니다.".to_string()),
                 }
             }
-            #[cfg(not(target_os = "windows"))]
-            Ok("Claude Code 설치 완료!".to_string())
+            Err(e) => Err(format!("설치 오류: {}", e)),
         }
-        Ok(out) => Err(format!(
-            "설치 실패: {}{}",
-            String::from_utf8_lossy(&out.stdout),
-            String::from_utf8_lossy(&out.stderr)
-        )),
-        Err(e) => Err(format!("npm 실행 오류: {}. Node.js가 먼저 설치되어야 합니다.", e)),
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        let output = command_with_path("npm")
+            .args(["install", "-g", "@anthropic-ai/claude-code"])
+            .output();
+        match output {
+            Ok(out) if out.status.success() => Ok("Claude Code 설치 완료!".to_string()),
+            Ok(out) => Err(format!(
+                "설치 실패: {}{}",
+                String::from_utf8_lossy(&out.stdout),
+                String::from_utf8_lossy(&out.stderr)
+            )),
+            Err(e) => Err(format!("npm 실행 오류: {}. Node.js가 먼저 설치되어야 합니다.", e)),
+        }
     }
 }
 
@@ -977,6 +1079,7 @@ fn main() {
             set_project_dir,
             copy_templates_to_project,
             get_expanded_path,
+            get_git_bash_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
@@ -985,4 +1088,12 @@ fn main() {
 #[tauri::command]
 fn get_expanded_path() -> String {
     expanded_path()
+}
+
+#[tauri::command]
+fn get_git_bash_path() -> String {
+    #[cfg(target_os = "windows")]
+    { find_git_bash() }
+    #[cfg(not(target_os = "windows"))]
+    { String::new() }
 }
