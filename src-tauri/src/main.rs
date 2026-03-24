@@ -540,26 +540,32 @@ fn base64_encode(data: &[u8]) -> String {
 
 #[tauri::command]
 fn check_node() -> Result<String, String> {
-    let path = expanded_path();
+    #[cfg(target_os = "windows")]
+    let output = command_with_path("cmd")
+        .args(["/C", "node", "--version"])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let output = command_with_path("node").arg("--version").output();
+
     match output {
         Ok(out) if out.status.success() => {
             Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
         }
-        Ok(out) => Err(format!(
-            "Node.js 실행 실패 (exit {}). PATH: {}",
-            out.status, &path[..path.len().min(200)]
-        )),
-        Err(e) => Err(format!(
-            "Node.js를 찾을 수 없습니다: {}. PATH: {}",
-            e, &path[..path.len().min(200)]
-        )),
+        _ => Err("Node.js가 설치되어 있지 않습니다".to_string()),
     }
 }
 
 #[tauri::command]
 fn check_claude() -> Result<String, String> {
+    #[cfg(target_os = "windows")]
+    let output = command_with_path("cmd")
+        .args(["/C", "claude", "--version"])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let output = command_with_path("claude").arg("--version").output();
+
     match output {
         Ok(out) if out.status.success() => {
             Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
@@ -625,13 +631,22 @@ fn install_node() -> Result<String, String> {
 
 #[tauri::command]
 fn install_claude_code() -> Result<String, String> {
+    // Windows에서 npm은 .cmd 파일이라 cmd /C로 감싸야 함
+    #[cfg(target_os = "windows")]
+    let output = command_with_path("cmd")
+        .args(["/C", "npm", "install", "-g", "@anthropic-ai/claude-code"])
+        .output();
+
+    #[cfg(not(target_os = "windows"))]
     let output = command_with_path("npm")
         .args(["install", "-g", "@anthropic-ai/claude-code"])
         .output();
+
     match output {
         Ok(out) if out.status.success() => Ok("Claude Code 설치 완료!".to_string()),
         Ok(out) => Err(format!(
-            "설치 실패: {}",
+            "설치 실패: {}{}",
+            String::from_utf8_lossy(&out.stdout),
             String::from_utf8_lossy(&out.stderr)
         )),
         Err(e) => Err(format!("npm 실행 오류: {}. Node.js가 먼저 설치되어야 합니다.", e)),
