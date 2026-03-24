@@ -934,7 +934,13 @@ fn main() {
             reset_project,
             set_project_dir,
             copy_templates_to_project,
+            get_expanded_path,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[tauri::command]
+fn get_expanded_path() -> String {
+    expanded_path()
 }

@@ -67,9 +67,17 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
         let cwd;
         try { cwd = await invoke("get_project_path"); } catch (_) {}
 
-        // 쉘 판별
+        // 쉘 판별 + 환경변수 확장
         const isMac = navigator.userAgent.includes("Mac");
         const shell = isMac ? "/bin/zsh" : "powershell.exe";
+
+        // Rust에서 확장된 PATH 가져오기
+        let expandedPath;
+        try {
+          expandedPath = await invoke("get_expanded_path");
+        } catch (_) {
+          expandedPath = "";
+        }
 
         // tauri-plugin-pty로 쉘 스폰
         const pty = spawn(shell, [], {
@@ -79,6 +87,7 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
           env: {
             TERM: "xterm-256color",
             LANG: "ko_KR.UTF-8",
+            ...(expandedPath ? { PATH: expandedPath } : {}),
           },
         });
 
