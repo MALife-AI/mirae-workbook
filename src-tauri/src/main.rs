@@ -432,6 +432,7 @@ pause"#, expanded, bash_path);
 fn check_auth_status() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     let output = command_with_path("cmd")
+        .env("CLAUDE_CODE_GIT_BASH_PATH", find_git_bash().trim())
         .args(["/C", "claude", "auth", "status"])
         .output();
 
@@ -461,6 +462,7 @@ fn run_claude(prompt: String) -> Result<String, String> {
 
     #[cfg(target_os = "windows")]
     let output = command_with_path("cmd")
+        .env("CLAUDE_CODE_GIT_BASH_PATH", find_git_bash().trim())
         .args(["/C", "claude", "-p", &prompt])
         .current_dir(&dir)
         .output();
@@ -632,8 +634,11 @@ fn check_node() -> Result<String, String> {
 fn check_claude() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        // 1차: cmd /C claude
+        let bash_path = find_git_bash().trim().to_string();
+
+        // 1차: cmd /C claude (CLAUDE_CODE_GIT_BASH_PATH 설정)
         let output = command_with_path("cmd")
+            .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
             .args(["/C", "claude", "--version"])
             .output();
         if let Ok(out) = &output {
@@ -645,6 +650,7 @@ fn check_claude() -> Result<String, String> {
         let home = std::env::var("USERPROFILE").unwrap_or_default();
         let direct = format!("{}\\AppData\\Roaming\\npm\\claude.cmd", home);
         let output2 = Command::new("cmd")
+            .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
             .args(["/C", &direct, "--version"])
             .output();
         match output2 {
