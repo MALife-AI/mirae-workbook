@@ -89,7 +89,7 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
             LANG: "ko_KR.UTF-8",
             ...(expandedPath ? { PATH: expandedPath } : {}),
             // Windows: Claude Code에 Git Bash 경로 필요
-            ...(!isMac ? { CLAUDE_CODE_GIT_BASH_PATH: await invoke("get_git_bash_path").catch(() => "C:\\Program Files\\Git\\bin\\bash.exe") } : {}),
+            ...(!isMac ? { CLAUDE_CODE_GIT_BASH_PATH: (await invoke("get_git_bash_path").catch(() => "C:\\Program Files\\Git\\bin\\bash.exe")).trim() } : {}),
           },
         });
 

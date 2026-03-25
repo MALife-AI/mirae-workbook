@@ -78,7 +78,7 @@ fn find_git_bash() -> String {
             // git.exe → 상위 디렉토리/bin/bash.exe
             if let Some(parent) = std::path::Path::new(&git_path).parent().and_then(|p| p.parent()) {
                 let bash = parent.join("bin").join("bash.exe");
-                if bash.exists() { return bash.to_string_lossy().to_string(); }
+                if bash.exists() { return bash.to_string_lossy().trim().to_string(); }
             }
         }
     }
@@ -1111,7 +1111,7 @@ fn get_expanded_path() -> String {
 #[tauri::command]
 fn get_git_bash_path() -> String {
     #[cfg(target_os = "windows")]
-    { find_git_bash() }
+    { find_git_bash().trim().to_string() }
     #[cfg(not(target_os = "windows"))]
     { String::new() }
 }
