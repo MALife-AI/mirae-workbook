@@ -925,14 +925,39 @@ fn load_api_key() -> Result<String, String> {
             return Ok(key);
         }
     }
-    // 2) 저장된 파일에서 읽기
+    // 2) 앱 실행 폴더의 config.txt에서 읽기 (강사가 미리 배포)
+    if let Ok(exe) = std::env::current_exe() {
+        if let Some(exe_dir) = exe.parent() {
+            // macOS: .app/Contents/MacOS/ → .app과 같은 레벨
+            let config_dirs = [
+                exe_dir.join("config.txt"),
+                exe_dir.join("..").join("..").join("..").join("config.txt"),  // macOS .app 밖
+                exe_dir.join("..").join("config.txt"),
+            ];
+            for cfg in &config_dirs {
+                if let Ok(content) = fs::read_to_string(cfg) {
+                    for line in content.lines() {
+                        let line = line.trim();
+                        if line.starts_with("ANTHROPIC_API_KEY=") {
+                            let key = line.trim_start_matches("ANTHROPIC_API_KEY=").trim();
+                            if !key.is_empty() {
+                                std::env::set_var("ANTHROPIC_API_KEY", key);
+                                return Ok(key.to_string());
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    // 3) 저장된 파일에서 읽기
     let path = api_key_path();
     match fs::read_to_string(&path) {
         Ok(key) if !key.trim().is_empty() => {
             std::env::set_var("ANTHROPIC_API_KEY", key.trim());
             Ok(key.trim().to_string())
         }
-        _ => Err("API 키가 설정되지 않았습니다".to_string()),
+        _ => Err("API key not configured".to_string()),
     }
 }
 

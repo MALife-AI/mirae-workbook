@@ -657,7 +657,7 @@ outputs/ 폴더에 저장해줘.`}</Ref>
           <Cmd cmd="claude" desc="Claude Code 시작" />
           <div style={{ marginTop: 16, fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
             실행하면 인증 화면이 나타납니다.<br/>
-            로그인 방식 또는 API 키로 인증하면 준비 완료!
+            API 키를 입력하면 준비 완료!
           </div>
         </div>
         <div style={{ ...card(), borderLeft: `4px solid ${M.ac}` }}>
@@ -3454,8 +3454,7 @@ function SetupSplash({ onDone }) {
     { id: "auth", label: "인증 설정", status: "pending" },
   ]);
   const [apiKey, setApiKey] = useState("");
-  const [authMode, setAuthMode] = useState(null); // null | "choose" | "apikey" | "login"
-  const [loginStatus, setLoginStatus] = useState(""); // "" | "working" | "done" | "error"
+  const [authMode, setAuthMode] = useState(null); // null | "apikey"
   const [error, setError] = useState("");
   const [log, setLog] = useState([]);
 
@@ -3528,8 +3527,13 @@ function SetupSplash({ onDone }) {
       setTimeout(() => onDone(), 800);
       return;
     } catch { /* 로그인 안됨 */ }
-    addLog("인증 미설정 → 방식 선택 필요");
-    setAuthMode("choose");
+    // config에 저장된 키가 있으면 미리 채우기
+    try {
+      const savedKey = await tauriInvoke("load_api_key");
+      if (savedKey) setApiKey(savedKey);
+    } catch { /* 없음 */ }
+    addLog("API key required");
+    setAuthMode("apikey");
   };
 
   const handleSaveKey = async () => {
@@ -3548,41 +3552,6 @@ function SetupSplash({ onDone }) {
       setTimeout(() => onDone(), 600);
     } catch (e) {
       setError(`API 키 저장 실패: ${e}`);
-    }
-  };
-
-  const handleLogin = async () => {
-    setAuthMode("login");
-    setLoginStatus("working");
-    setError("");
-    addLog("claude login 실행 중... (브라우저가 열립니다)");
-    try {
-      await tauriInvoke("start_claude_login");
-      addLog("브라우저에서 로그인을 완료해주세요...");
-      // 인증 완료될 때까지 폴링 (2초 간격, 최대 60회 = 2분)
-      let attempts = 0;
-      const poll = setInterval(async () => {
-        attempts++;
-        try {
-          await tauriInvoke("check_auth_status");
-          clearInterval(poll);
-          addLog("로그인 성공!");
-          setLoginStatus("done");
-          updateStep("auth", "done");
-          setTimeout(() => onDone(), 800);
-        } catch {
-          if (attempts >= 60) {
-            clearInterval(poll);
-            addLog("로그인 시간 초과");
-            setLoginStatus("error");
-            setError("로그인 시간이 초과되었습니다. 다시 시도해주세요.");
-          }
-        }
-      }, 2000);
-    } catch (e) {
-      addLog(`로그인 실패: ${e}`);
-      setLoginStatus("error");
-      setError("로그인에 실패했습니다. Claude Code가 설치되어 있는지 확인하세요.");
     }
   };
 
@@ -3633,56 +3602,11 @@ function SetupSplash({ onDone }) {
           ))}
         </div>
 
-        {/* 인증 방식 선택 */}
-        {authMode === "choose" && (
-          <div style={{ padding: "0 32px 24px" }}>
-            <div style={{ fontSize: 15, color: M.or, fontWeight: 700, marginBottom: 12 }}>인증 방식을 선택하세요</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              {/* 로그인 카드 */}
-              <button onClick={handleLogin}
-                style={{ flex: 1, background: M.bg3, border: `1.5px solid ${M.or}66`, borderRadius: 12, padding: "18px 14px", cursor: "pointer", textAlign: "center", transition: "border-color .2s" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = M.or}
-                onMouseLeave={e => e.currentTarget.style.borderColor = M.or + "66"}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>&#x1f511;</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: M.tx, marginBottom: 4 }}>로그인</div>
-                <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.5 }}>
-                  Claude Pro/Max 구독자<br/>
-                  <span style={{ color: M.tx3 }}>브라우저에서 로그인</span>
-                </div>
-              </button>
-              {/* API 키 카드 */}
-              <button onClick={() => { setAuthMode("apikey"); setError(""); }}
-                style={{ flex: 1, background: M.bg3, border: `1.5px solid ${M.bd}`, borderRadius: 12, padding: "18px 14px", cursor: "pointer", textAlign: "center", transition: "border-color .2s" }}
-                onMouseEnter={e => e.currentTarget.style.borderColor = M.or}
-                onMouseLeave={e => e.currentTarget.style.borderColor = M.bd}>
-                <div style={{ fontSize: 28, marginBottom: 8 }}>&#x1f4cb;</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: M.tx, marginBottom: 4 }}>API 키</div>
-                <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.5 }}>
-                  Anthropic API 사용자<br/>
-                  <span style={{ color: M.tx3 }}>sk-ant- 키 직접 입력</span>
-                </div>
-              </button>
-            </div>
-            <div style={{ textAlign: "center", marginTop: 12 }}>
-              <button onClick={handleSkipAuth}
-                style={{ background: "none", color: M.tx3, border: "none", cursor: "pointer", fontSize: 14, textDecoration: "underline" }}>
-                나중에 설정
-              </button>
-            </div>
-          </div>
-        )}
-
         {/* API 키 입력 폼 */}
         {authMode === "apikey" && (
           <div style={{ padding: "0 32px 24px" }}>
             <div style={{ background: M.bg3, borderRadius: 12, padding: 20, border: `1px solid ${M.or}44` }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
-                <div style={{ fontSize: 15, color: M.or, fontWeight: 700 }}>Anthropic API 키 입력</div>
-                <button onClick={() => { setAuthMode("choose"); setError(""); }}
-                  style={{ background: "none", border: "none", color: M.tx3, cursor: "pointer", fontSize: 14 }}>
-                  &#x2190; 돌아가기
-                </button>
-              </div>
+              <div style={{ fontSize: 15, color: M.or, fontWeight: 700, marginBottom: 8 }}>Anthropic API Key</div>
               <div style={{ fontSize: 14, color: M.tx2, marginBottom: 12, lineHeight: 1.6 }}>
                 console.anthropic.com &#x2192; API Keys &#x2192; Create Key<br/>
                 sk-ant-로 시작하는 키를 붙여넣으세요
@@ -3710,34 +3634,6 @@ function SetupSplash({ onDone }) {
           </div>
         )}
 
-        {/* 로그인 진행 중 */}
-        {authMode === "login" && (
-          <div style={{ padding: "0 32px 24px" }}>
-            <div style={{ background: M.bg3, borderRadius: 12, padding: 20, border: `1px solid ${M.or}44`, textAlign: "center" }}>
-              <div style={{ fontSize: 15, color: M.or, fontWeight: 700, marginBottom: 12 }}>
-                {loginStatus === "working" ? "로그인 진행 중..." : loginStatus === "done" ? "로그인 완료!" : "로그인 실패"}
-              </div>
-              {loginStatus === "working" && (
-                <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.6 }}>
-                  브라우저가 열립니다. 로그인을 완료해주세요.<br/>
-                  <span style={{ fontSize: 22, display: "inline-block", marginTop: 8, animation: "spin 1s linear infinite" }}>&#x23F3;</span>
-                </div>
-              )}
-              {loginStatus === "error" && (
-                <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "center" }}>
-                  <button onClick={handleLogin}
-                    style={{ background: M.or, color: "#fff", border: "none", borderRadius: 8, padding: "10px 20px", cursor: "pointer", fontSize: 15, fontWeight: 700 }}>
-                    다시 시도
-                  </button>
-                  <button onClick={() => { setAuthMode("choose"); setError(""); }}
-                    style={{ background: M.bg2, color: M.tx3, border: `1px solid ${M.bd}`, borderRadius: 8, padding: "10px 16px", cursor: "pointer", fontSize: 15 }}>
-                    돌아가기
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* 에러 메시지 */}
         {error && (
