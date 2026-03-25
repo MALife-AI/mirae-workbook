@@ -35,7 +35,8 @@
       "icons/icon.ico"
     ],
     "resources": [
-      "resources/templates/*"
+      "resources/templates/*",
+      "resources/config.txt"
     ],
     "windows": {
       "certificateThumbprint": null,

@@ -930,9 +930,10 @@ fn load_api_key() -> Result<String, String> {
         if let Some(exe_dir) = exe.parent() {
             // macOS: .app/Contents/MacOS/ → .app과 같은 레벨
             let config_dirs = [
-                exe_dir.join("config.txt"),
-                exe_dir.join("..").join("..").join("..").join("config.txt"),  // macOS .app 밖
-                exe_dir.join("..").join("config.txt"),
+                exe_dir.join("config.txt"),                                      // Windows: exe 옆
+                exe_dir.join("..").join("Resources").join("config.txt"),          // macOS 번들 리소스
+                exe_dir.join("..").join("..").join("..").join("config.txt"),      // macOS .app 밖
+                exe_dir.join("..").join("config.txt"),                            // 상위 폴더
             ];
             for cfg in &config_dirs {
                 if let Ok(content) = fs::read_to_string(cfg) {
