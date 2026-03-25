@@ -391,15 +391,11 @@ fn start_claude_login() -> Result<String, String> {
     // claude login을 별도 창에서 실행 (브라우저가 열림)
     #[cfg(target_os = "windows")]
     let result = {
-        let bash_path = find_git_bash();
-        let expanded = expanded_path();
-        let script = format!(
-            "@echo off\r\nset \"PATH={}\"\r\nset \"CLAUDE_CODE_GIT_BASH_PATH={}\"\r\necho =========================================\r\necho   Claude Code Login\r\necho =========================================\r\necho.\r\necho Browser will open. Please login and return here.\r\necho.\r\ncall claude login\r\necho.\r\necho =========================================\r\necho   Login complete! Close this window.\r\necho =========================================\r\npause\r\n",
-            expanded.trim(), bash_path.trim());
-        let bat_path = std::env::temp_dir().join("claude_login.bat");
-        let _ = fs::write(&bat_path, &script);
-        Command::new("cmd")
-            .args(["/C", "start", "", &bat_path.to_string_lossy().to_string()])
+        let bash_path = find_git_bash().trim().to_string();
+        command_with_path("cmd")
+            .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
+            .args(["/C", "start", "", "cmd", "/K",
+                &format!("set CLAUDE_CODE_GIT_BASH_PATH={} && claude login", bash_path)])
             .spawn()
     };
 
@@ -703,89 +699,91 @@ fn install_node() -> Result<String, String> {
 fn install_claude_code() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        // Windows 올인원: Git + Claude Code 한번에 설치
-        let script = "@echo off\r\n\
-echo =========================================\r\n\
-echo   Claude Code - All-in-One Install\r\n\
-echo =========================================\r\n\
-echo.\r\n\
-\r\n\
-where git >nul 2>&1\r\n\
-if %ERRORLEVEL% NEQ 0 (\r\n\
-    echo [1/3] Installing Git...\r\n\
-    echo.\r\n\
-    winget install --id Git.Git --accept-package-agreements --accept-source-agreements\r\n\
-    set \"PATH=%PATH%;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd\"\r\n\
-    where git >nul 2>&1\r\n\
-    if %ERRORLEVEL% NEQ 0 (\r\n\
-        echo      winget failed. Downloading Git directly...\r\n\
-        powershell -ExecutionPolicy Bypass -Command \"Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile '%TEMP%\\git-install.exe'\"\r\n\
-        if exist \"%TEMP%\\git-install.exe\" (\r\n\
-            echo      Installing Git...\r\n\
-            \"%TEMP%\\git-install.exe\" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS\r\n\
-            del \"%TEMP%\\git-install.exe\" >nul 2>&1\r\n\
-            set \"PATH=%PATH%;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd\"\r\n\
-        ) else (\r\n\
-            echo      Download failed. Install Git manually: https://git-scm.com/downloads/win\r\n\
-            pause\r\n\
-            exit /b 1\r\n\
-        )\r\n\
-    )\r\n\
-    echo      Git installed!\r\n\
-) else (\r\n\
-    echo [1/3] Git OK\r\n\
-)\r\n\
-echo.\r\n\
-\r\n\
-echo [2/3] Installing Claude Code...\r\n\
-echo.\r\n\
-call npm install -g @anthropic-ai/claude-code\r\n\
-if %ERRORLEVEL% NEQ 0 (\r\n\
-    echo Install failed.\r\n\
-    pause\r\n\
-    exit /b 1\r\n\
-)\r\n\
-echo.\r\n\
-echo Claude Code installed!\r\n\
-echo.\r\n\
-\r\n\
-echo [3/3] Setting CLAUDE_CODE_GIT_BASH_PATH...\r\n\
-set \"BASH_PATH=\"\r\n\
-if exist \"C:\\Program Files\\Git\\bin\\bash.exe\" set \"BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe\"\r\n\
-if exist \"C:\\Program Files (x86)\\Git\\bin\\bash.exe\" set \"BASH_PATH=C:\\Program Files (x86)\\Git\\bin\\bash.exe\"\r\n\
-if defined BASH_PATH (\r\n\
-    setx CLAUDE_CODE_GIT_BASH_PATH \"%BASH_PATH%\" >nul 2>&1\r\n\
-    echo      CLAUDE_CODE_GIT_BASH_PATH = %BASH_PATH%\r\n\
-) else (\r\n\
-    echo      [!] bash.exe not found. Set manually:\r\n\
-    echo      CLAUDE_CODE_GIT_BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe\r\n\
-)\r\n\
-echo.\r\n\
-echo =========================================\r\n\
-echo   All done! This window will close.\r\n\
-echo =========================================\r\n\
-timeout /t 5 >nul\r\n";
-        let bat_path = std::env::temp_dir().join("install_claude.bat");
-        let _ = fs::write(&bat_path, script);
-        let output = command_with_path("cmd")
-            .args(["/C", "start", "/wait", "", &bat_path.to_string_lossy().to_string()])
-            .output();
-        match output {
-            Ok(_) => {
-                // 설치 후 확인
-                let verify = command_with_path("cmd")
-                    .args(["/C", "claude", "--version"])
-                    .env("CLAUDE_CODE_GIT_BASH_PATH", find_git_bash())
+        let mut log = Vec::new();
+
+        // [1] Git 확인 및 설치
+        let has_git = Command::new("cmd").args(["/C", "where", "git"]).output()
+            .map(|o| o.status.success()).unwrap_or(false);
+
+        if !has_git {
+            log.push("[1/3] Git not found. Installing...".to_string());
+
+            // winget 시도
+            let winget = command_with_path("cmd")
+                .args(["/C", "winget", "install", "--id", "Git.Git",
+                    "--accept-package-agreements", "--accept-source-agreements"])
+                .output();
+            let winget_ok = matches!(&winget, Ok(o) if o.status.success());
+
+            if !winget_ok {
+                log.push("  winget failed. Downloading Git...".to_string());
+                // PowerShell 직접 다운로드
+                let dl = command_with_path("powershell")
+                    .args(["-ExecutionPolicy", "Bypass", "-Command",
+                        "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile \"$env:TEMP\\git-install.exe\""])
                     .output();
-                match verify {
-                    Ok(v) if v.status.success() => Ok(format!(
-                        "Claude Code 설치 완료! ({})",
-                        String::from_utf8_lossy(&v.stdout).trim()
-                    )),
-                    _ => Ok("설치 완료! 앱을 재시작하면 인식됩니다.".to_string()),
+                let dl_ok = matches!(&dl, Ok(o) if o.status.success());
+
+                if dl_ok {
+                    let installer = std::env::temp_dir().join("git-install.exe");
+                    if installer.exists() {
+                        log.push("  Installing Git silently...".to_string());
+                        let _ = Command::new(&installer)
+                            .args(["/VERYSILENT", "/NORESTART", "/NOCANCEL", "/SP-"])
+                            .output();
+                        let _ = fs::remove_file(&installer);
+                    }
+                } else {
+                    return Err("Git download failed. Install manually: https://git-scm.com/downloads/win".to_string());
                 }
             }
-            Err(e) => Err(format!("설치 오류: {}", e)),
+
+            // 설치 확인
+            let git_path = find_git_bash();
+            if !std::path::Path::new(&git_path).exists() {
+                return Err("Git installed but bash.exe not found. Restart the app and try again.".to_string());
+            }
+            log.push(format!("  Git OK! bash at: {}", git_path));
+        } else {
+            log.push("[1/3] Git OK".to_string());
+        }
+
+        // [2] Claude Code 설치
+        log.push("[2/3] Installing Claude Code...".to_string());
+        let npm = command_with_path("cmd")
+            .args(["/C", "npm", "install", "-g", "@anthropic-ai/claude-code"])
+            .output();
+        match &npm {
+            Ok(o) if o.status.success() => {
+                log.push("  Claude Code installed!".to_string());
+            }
+            Ok(o) => {
+                let err = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
+                return Err(format!("npm install failed: {}", err.trim()));
+            }
+            Err(e) => {
+                return Err(format!("npm not found: {}. Install Node.js first.", e));
+            }
+        }
+
+        // [3] CLAUDE_CODE_GIT_BASH_PATH 환경변수 설정
+        let bash_path = find_git_bash().trim().to_string();
+        log.push(format!("[3/3] Setting CLAUDE_CODE_GIT_BASH_PATH = {}", bash_path));
+        let _ = Command::new("cmd")
+            .args(["/C", "setx", "CLAUDE_CODE_GIT_BASH_PATH", &bash_path])
+            .output();
+
+        // 설치 확인
+        let verify = command_with_path("cmd")
+            .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
+            .args(["/C", "claude", "--version"])
+            .output();
+        match verify {
+            Ok(v) if v.status.success() => {
+                Ok(format!("Claude Code installed! ({})\n\n{}",
+                    String::from_utf8_lossy(&v.stdout).trim(), log.join("\n")))
+            }
+            _ => Ok(format!("Install complete! Restart the app.\n\n{}", log.join("\n"))),
         }
     }
 
