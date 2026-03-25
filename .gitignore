@@ -3,4 +3,3 @@ dist/
 src-tauri/target/
 *.dmg
 .DS_Store
-src-tauri/resources/config.txt
