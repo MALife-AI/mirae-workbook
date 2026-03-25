@@ -394,22 +394,8 @@ fn start_claude_login() -> Result<String, String> {
         let bash_path = find_git_bash();
         let expanded = expanded_path();
         let script = format!(
-            r#"@echo off
-chcp 65001 >nul
-set "PATH={}"
-set "CLAUDE_CODE_GIT_BASH_PATH={}"
-echo =========================================
-echo   Claude Code 로그인
-echo =========================================
-echo.
-echo 브라우저가 열립니다. 로그인 후 이 창으로 돌아오세요.
-echo.
-call claude login
-echo.
-echo =========================================
-echo   로그인 완료! 이 창을 닫아주세요.
-echo =========================================
-pause"#, expanded, bash_path);
+            "@echo off\r\nset \"PATH={}\"\r\nset \"CLAUDE_CODE_GIT_BASH_PATH={}\"\r\necho =========================================\r\necho   Claude Code Login\r\necho =========================================\r\necho.\r\necho Browser will open. Please login and return here.\r\necho.\r\ncall claude login\r\necho.\r\necho =========================================\r\necho   Login complete! Close this window.\r\necho =========================================\r\npause\r\n",
+            expanded.trim(), bash_path.trim());
         let bat_path = std::env::temp_dir().join("claude_login.bat");
         let _ = fs::write(&bat_path, &script);
         Command::new("cmd")
@@ -678,25 +664,7 @@ fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         // Windows 올인원: bat 파일로 Node.js 설치
-        let script = r#"@echo off
-echo =========================================
-echo   Node.js 설치
-echo =========================================
-echo.
-echo [1/2] winget으로 설치 시도 중...
-winget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements
-if %ERRORLEVEL% NEQ 0 (
-    echo.
-    echo [1/2] winget 실패. 직접 다운로드합니다...
-    powershell -Command "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile '%TEMP%\node-install.msi'"
-    msiexec /i "%TEMP%\node-install.msi" /qn
-)
-echo.
-echo =========================================
-echo   Node.js 설치 완료! 이 창은 자동으로 닫힙니다.
-echo =========================================
-timeout /t 3 >nul
-"#;
+        let script = "@echo off\r\necho =========================================\r\necho   Node.js Install\r\necho =========================================\r\necho.\r\necho [1/2] Trying winget...\r\nwinget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements\r\nif %ERRORLEVEL% NEQ 0 (\r\n    echo.\r\n    echo [1/2] winget failed. Downloading directly...\r\n    powershell -Command \"Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile '%TEMP%\\node-install.msi'\"\r\n    msiexec /i \"%TEMP%\\node-install.msi\" /qn\r\n)\r\necho.\r\necho =========================================\r\necho   Node.js install complete!\r\necho =========================================\r\ntimeout /t 3 >nul\r\n";
         let bat_path = std::env::temp_dir().join("install_node.bat");
         let _ = fs::write(&bat_path, script);
         let output = command_with_path("cmd")
@@ -736,88 +704,67 @@ fn install_claude_code() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
         // Windows 올인원: Git + Claude Code 한번에 설치
-        let script = r#"@echo off
-chcp 65001 >nul
-echo =========================================
-echo   Claude Code 올인원 설치
-echo =========================================
-echo.
-
-:: [1] Git 확인
-where git >nul 2>&1
-if %ERRORLEVEL% NEQ 0 (
-    echo [1/3] Git 설치 중... (Claude Code에 필요합니다)
-    echo.
-    :: 방법1: winget
-    winget install --id Git.Git --accept-package-agreements --accept-source-agreements >nul 2>&1
-    where git >nul 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo      winget 실패. 직접 다운로드합니다...
-        echo      Git 다운로드 중... (잠시 기다려주세요)
-        :: 방법2: PowerShell로 직접 다운로드 + 사일런트 설치
-        powershell -ExecutionPolicy Bypass -Command "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile '%TEMP%\git-install.exe'"
-        if exist "%TEMP%\git-install.exe" (
-            echo      Git 설치 중...
-            "%TEMP%\git-install.exe" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS /COMPONENTS="icons,ext\reg\shellhere,assoc,assoc_sh"
-            del "%TEMP%\git-install.exe" >nul 2>&1
-        ) else (
-            echo      다운로드 실패. https://git-scm.com/downloads/win 에서 직접 설치해주세요.
-            pause
-            exit /b 1
-        )
-    )
-    :: 설치 후 PATH 반영
-    set "PATH=%PATH%;C:\Program Files\Git\bin;C:\Program Files\Git\cmd"
-    where git >nul 2>&1
-    if %ERRORLEVEL% NEQ 0 (
-        echo      Git 설치에 실패했습니다. https://git-scm.com/downloads/win 에서 직접 설치해주세요.
-        pause
-        exit /b 1
-    )
-    echo      Git 설치 완료!
-) else (
-    echo [1/3] Git 이미 설치됨 ✓
-)
-echo.
-
-:: [2] Claude Code 설치
-echo [2/3] Claude Code 설치 중...
-echo.
-call npm install -g @anthropic-ai/claude-code
-if %ERRORLEVEL% NEQ 0 (
-    echo Claude Code 설치 실패.
-    pause
-    exit /b 1
-)
-echo.
-echo Claude Code 설치 완료!
-echo.
-
-:: [3] Git Bash 경로 확인
-echo [3/3] Git Bash 경로 확인 중...
-set "BASH_PATH="
-if exist "C:\Program Files\Git\bin\bash.exe" (
-    set "BASH_PATH=C:\Program Files\Git\bin\bash.exe"
-)
-if exist "C:\Program Files (x86)\Git\bin\bash.exe" (
-    set "BASH_PATH=C:\Program Files (x86)\Git\bin\bash.exe"
-)
-if defined BASH_PATH (
-    echo Git Bash 경로: %BASH_PATH%
-    setx CLAUDE_CODE_GIT_BASH_PATH "%BASH_PATH%" >nul 2>&1
-    echo CLAUDE_CODE_GIT_BASH_PATH 환경변수 설정 완료!
-) else (
-    echo [경고] Git Bash를 찾을 수 없습니다.
-    echo 수동으로 환경변수를 설정하세요:
-    echo   CLAUDE_CODE_GIT_BASH_PATH=C:\Program Files\Git\bin\bash.exe
-)
-
-echo.
-echo =========================================
-echo   설치 완료! 이 창은 자동으로 닫힙니다.
-echo =========================================
-timeout /t 5 >nul
-"#;
+        let script = "@echo off\r\n\
+echo =========================================\r\n\
+echo   Claude Code - All-in-One Install\r\n\
+echo =========================================\r\n\
+echo.\r\n\
+\r\n\
+where git >nul 2>&1\r\n\
+if %ERRORLEVEL% NEQ 0 (\r\n\
+    echo [1/3] Installing Git...\r\n\
+    echo.\r\n\
+    winget install --id Git.Git --accept-package-agreements --accept-source-agreements\r\n\
+    set \"PATH=%PATH%;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd\"\r\n\
+    where git >nul 2>&1\r\n\
+    if %ERRORLEVEL% NEQ 0 (\r\n\
+        echo      winget failed. Downloading Git directly...\r\n\
+        powershell -ExecutionPolicy Bypass -Command \"Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile '%TEMP%\\git-install.exe'\"\r\n\
+        if exist \"%TEMP%\\git-install.exe\" (\r\n\
+            echo      Installing Git...\r\n\
+            \"%TEMP%\\git-install.exe\" /VERYSILENT /NORESTART /NOCANCEL /SP- /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS\r\n\
+            del \"%TEMP%\\git-install.exe\" >nul 2>&1\r\n\
+            set \"PATH=%PATH%;C:\\Program Files\\Git\\bin;C:\\Program Files\\Git\\cmd\"\r\n\
+        ) else (\r\n\
+            echo      Download failed. Install Git manually: https://git-scm.com/downloads/win\r\n\
+            pause\r\n\
+            exit /b 1\r\n\
+        )\r\n\
+    )\r\n\
+    echo      Git installed!\r\n\
+) else (\r\n\
+    echo [1/3] Git OK\r\n\
+)\r\n\
+echo.\r\n\
+\r\n\
+echo [2/3] Installing Claude Code...\r\n\
+echo.\r\n\
+call npm install -g @anthropic-ai/claude-code\r\n\
+if %ERRORLEVEL% NEQ 0 (\r\n\
+    echo Install failed.\r\n\
+    pause\r\n\
+    exit /b 1\r\n\
+)\r\n\
+echo.\r\n\
+echo Claude Code installed!\r\n\
+echo.\r\n\
+\r\n\
+echo [3/3] Setting CLAUDE_CODE_GIT_BASH_PATH...\r\n\
+set \"BASH_PATH=\"\r\n\
+if exist \"C:\\Program Files\\Git\\bin\\bash.exe\" set \"BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe\"\r\n\
+if exist \"C:\\Program Files (x86)\\Git\\bin\\bash.exe\" set \"BASH_PATH=C:\\Program Files (x86)\\Git\\bin\\bash.exe\"\r\n\
+if defined BASH_PATH (\r\n\
+    setx CLAUDE_CODE_GIT_BASH_PATH \"%BASH_PATH%\" >nul 2>&1\r\n\
+    echo      CLAUDE_CODE_GIT_BASH_PATH = %BASH_PATH%\r\n\
+) else (\r\n\
+    echo      [!] bash.exe not found. Set manually:\r\n\
+    echo      CLAUDE_CODE_GIT_BASH_PATH=C:\\Program Files\\Git\\bin\\bash.exe\r\n\
+)\r\n\
+echo.\r\n\
+echo =========================================\r\n\
+echo   All done! This window will close.\r\n\
+echo =========================================\r\n\
+timeout /t 5 >nul\r\n";
         let bat_path = std::env::temp_dir().join("install_claude.bat");
         let _ = fs::write(&bat_path, script);
         let output = command_with_path("cmd")
