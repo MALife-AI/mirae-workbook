@@ -52,25 +52,44 @@ if [ $BUILD_EXIT -eq 0 ]; then
     echo ""
     echo "[3/3] Copying build artifacts back to WSL..."
 
+    RELEASE_DIR="$WIN_PROJECT/src-tauri/target/release"
+
     # NSIS installer 복사
-    NSIS_DIR="$WIN_PROJECT/src-tauri/target/release/bundle/nsis"
+    NSIS_DIR="$RELEASE_DIR/bundle/nsis"
     if [ -d "$NSIS_DIR" ]; then
-        mkdir -p ./build-output
-        cp "$NSIS_DIR"/*.exe ./build-output/ 2>/dev/null && \
-            echo "  Installer copied to ./build-output/"
+        mkdir -p ./build-output/installer
+        cp "$NSIS_DIR"/*.exe ./build-output/installer/ 2>/dev/null && \
+            echo "  Installer → ./build-output/installer/"
     fi
 
-    # standalone exe 복사
-    EXE_PATH="$WIN_PROJECT/src-tauri/target/release/VibeCodingWorkbook.exe"
-    if [ -f "$EXE_PATH" ]; then
-        mkdir -p ./build-output
-        cp "$EXE_PATH" ./build-output/ && \
-            echo "  EXE copied to ./build-output/"
+    # Standalone 포터블 버전 구성 (exe + resources)
+    STANDALONE_DIR="./build-output/standalone"
+    rm -rf "$STANDALONE_DIR"
+    mkdir -p "$STANDALONE_DIR"
+
+    # exe 복사 (mirae-workbook.exe 또는 VibeCodingWorkbook.exe)
+    for name in "mirae-workbook.exe" "VibeCodingWorkbook.exe"; do
+        if [ -f "$RELEASE_DIR/$name" ]; then
+            cp "$RELEASE_DIR/$name" "$STANDALONE_DIR/VibeCodingWorkbook.exe"
+            echo "  EXE → $STANDALONE_DIR/VibeCodingWorkbook.exe"
+            break
+        fi
+    done
+
+    # 리소스 복사 (templates, config.txt)
+    if [ -d "$WIN_PROJECT/src-tauri/resources" ]; then
+        cp -r "$WIN_PROJECT/src-tauri/resources" "$STANDALONE_DIR/resources"
+        echo "  Resources → $STANDALONE_DIR/resources/"
     fi
 
     echo ""
     echo "=== Build Complete! ==="
-    ls -lh ./build-output/ 2>/dev/null
+    echo ""
+    echo "  [Installer]"
+    ls -lh ./build-output/installer/ 2>/dev/null
+    echo ""
+    echo "  [Standalone - 설치 없이 바로 실행]"
+    ls -lhR "$STANDALONE_DIR" 2>/dev/null
 else
     echo ""
     echo "=== Build Failed ==="
