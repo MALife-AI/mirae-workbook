@@ -659,15 +659,33 @@ fn check_claude() -> Result<String, String> {
 fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        // Windows 올인원: bat 파일로 Node.js 설치
-        let script = "@echo off\r\necho =========================================\r\necho   Node.js Install\r\necho =========================================\r\necho.\r\necho [1/2] Trying winget...\r\nwinget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements\r\nif %ERRORLEVEL% NEQ 0 (\r\n    echo.\r\n    echo [1/2] winget failed. Downloading directly...\r\n    powershell -Command \"Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile '%TEMP%\\node-install.msi'\"\r\n    msiexec /i \"%TEMP%\\node-install.msi\" /qn\r\n)\r\necho.\r\necho =========================================\r\necho   Node.js install complete!\r\necho =========================================\r\ntimeout /t 3 >nul\r\n";
+        // Windows: winget 먼저, 실패시 MSI 직접 다운로드
+        let script = "@echo off\r\necho =========================================\r\necho   Node.js Install\r\necho =========================================\r\necho.\r\necho [1/2] Trying winget...\r\nwinget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements\r\nif %ERRORLEVEL% NEQ 0 (\r\n    echo.\r\n    echo [1/2] winget failed. Downloading directly...\r\n    powershell -Command \"Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile '%TEMP%\\node-install.msi'\"\r\n    msiexec /i \"%TEMP%\\node-install.msi\" /qn /norestart\r\n)\r\necho.\r\necho =========================================\r\necho   Node.js install complete!\r\necho =========================================\r\n";
         let bat_path = std::env::temp_dir().join("install_node.bat");
         let _ = fs::write(&bat_path, script);
         let output = command_with_path("cmd")
-            .args(["/C", "start", "/wait", "", &bat_path.to_string_lossy().to_string()])
+            .args(["/C", &bat_path.to_string_lossy().to_string()])
             .output();
+
+        // 설치 후 현재 프로세스 PATH에 Node.js 경로 추가 (재시작 없이 npm 찾기)
+        let current = std::env::var("PATH").unwrap_or_default();
+        let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
+        let node_path = format!("{}\\nodejs", program_files);
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let npm_global = format!("{}\\AppData\\Roaming\\npm", home);
+        if !current.contains(&node_path) {
+            std::env::set_var("PATH", format!("{};{};{}", npm_global, node_path, current));
+        }
+
         match output {
-            Ok(_) => Ok("Node.js 설치 완료! 앱을 재시작해주세요.".to_string()),
+            Ok(o) => {
+                let stderr = String::from_utf8_lossy(&o.stderr).to_string();
+                if !o.status.success() && !stderr.is_empty() {
+                    Err(format!("설치 중 오류: {}. https://nodejs.org 에서 직접 설치해주세요.", stderr.trim()))
+                } else {
+                    Ok("Node.js 설치 완료!".to_string())
+                }
+            }
             Err(e) => Err(format!("설치 오류: {}. https://nodejs.org 에서 직접 설치해주세요.", e)),
         }
     }
@@ -702,7 +720,7 @@ fn install_claude_code() -> Result<String, String> {
         let mut log = Vec::new();
 
         // [1] Git 확인 및 설치
-        let has_git = Command::new("cmd").args(["/C", "where", "git"]).output()
+        let has_git = command_with_path("cmd").args(["/C", "where", "git"]).output()
             .map(|o| o.status.success()).unwrap_or(false);
 
         if !has_git {
@@ -717,7 +735,6 @@ fn install_claude_code() -> Result<String, String> {
 
             if !winget_ok {
                 log.push("  winget failed. Downloading Git...".to_string());
-                // PowerShell 직접 다운로드
                 let dl = command_with_path("powershell")
                     .args(["-ExecutionPolicy", "Bypass", "-Command",
                         "Invoke-WebRequest -Uri 'https://github.com/git-for-windows/git/releases/download/v2.47.1.windows.2/Git-2.47.1.2-64-bit.exe' -OutFile \"$env:TEMP\\git-install.exe\""])
@@ -738,7 +755,15 @@ fn install_claude_code() -> Result<String, String> {
                 }
             }
 
-            // 설치 확인
+            // Git 설치 후 PATH 갱신
+            let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
+            let current = std::env::var("PATH").unwrap_or_default();
+            let git_bin = format!("{}\\Git\\bin", program_files);
+            let git_cmd = format!("{}\\Git\\cmd", program_files);
+            if !current.contains(&git_bin) {
+                std::env::set_var("PATH", format!("{};{};{}", git_bin, git_cmd, current));
+            }
+
             let git_path = find_git_bash();
             if !std::path::Path::new(&git_path).exists() {
                 return Err("Git installed but bash.exe not found. Restart the app and try again.".to_string());
@@ -748,22 +773,40 @@ fn install_claude_code() -> Result<String, String> {
             log.push("[1/3] Git OK".to_string());
         }
 
-        // [2] Claude Code 설치
+        // [2] Claude Code 설치 — npm 직접 경로 시도 포함
         log.push("[2/3] Installing Claude Code...".to_string());
-        let npm = command_with_path("cmd")
-            .args(["/C", "npm", "install", "-g", "@anthropic-ai/claude-code"])
-            .output();
-        match &npm {
-            Ok(o) if o.status.success() => {
-                log.push("  Claude Code installed!".to_string());
+
+        // npm을 찾을 수 있는 경로들
+        let home = std::env::var("USERPROFILE").unwrap_or_default();
+        let npm_candidates = vec![
+            "npm".to_string(),
+            format!("{}\\AppData\\Roaming\\npm\\npm.cmd", home),
+            "C:\\Program Files\\nodejs\\npm.cmd".to_string(),
+        ];
+
+        let mut npm_ok = false;
+        for npm_path in &npm_candidates {
+            let npm = command_with_path("cmd")
+                .args(["/C", npm_path, "install", "-g", "@anthropic-ai/claude-code"])
+                .output();
+            match &npm {
+                Ok(o) if o.status.success() => {
+                    log.push(format!("  Claude Code installed! (via {})", npm_path));
+                    npm_ok = true;
+                    break;
+                }
+                Ok(o) => {
+                    let err = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
+                    log.push(format!("  npm ({}) failed: {}", npm_path, err.trim()));
+                }
+                Err(e) => {
+                    log.push(format!("  npm ({}) not found: {}", npm_path, e));
+                }
             }
-            Ok(o) => {
-                let err = format!("{}{}", String::from_utf8_lossy(&o.stdout), String::from_utf8_lossy(&o.stderr));
-                return Err(format!("npm install failed: {}", err.trim()));
-            }
-            Err(e) => {
-                return Err(format!("npm not found: {}. Install Node.js first.", e));
-            }
+        }
+
+        if !npm_ok {
+            return Err(format!("npm install failed. Install Node.js first (nodejs.org).\n\nLog:\n{}", log.join("\n")));
         }
 
         // [3] CLAUDE_CODE_GIT_BASH_PATH 환경변수 설정
@@ -772,19 +815,28 @@ fn install_claude_code() -> Result<String, String> {
         let _ = Command::new("cmd")
             .args(["/C", "setx", "CLAUDE_CODE_GIT_BASH_PATH", &bash_path])
             .output();
+        // 현재 프로세스에도 설정
+        std::env::set_var("CLAUDE_CODE_GIT_BASH_PATH", &bash_path);
 
-        // 설치 확인
-        let verify = command_with_path("cmd")
-            .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
-            .args(["/C", "claude", "--version"])
-            .output();
-        match verify {
-            Ok(v) if v.status.success() => {
-                Ok(format!("Claude Code installed! ({})\n\n{}",
-                    String::from_utf8_lossy(&v.stdout).trim(), log.join("\n")))
+        // 설치 확인 — 직접 경로도 시도
+        let claude_candidates = vec![
+            "claude".to_string(),
+            format!("{}\\AppData\\Roaming\\npm\\claude.cmd", home),
+        ];
+        for claude_path in &claude_candidates {
+            let verify = command_with_path("cmd")
+                .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
+                .args(["/C", claude_path, "--version"])
+                .output();
+            if let Ok(v) = &verify {
+                if v.status.success() {
+                    return Ok(format!("Claude Code installed! ({})\n\n{}",
+                        String::from_utf8_lossy(&v.stdout).trim(), log.join("\n")));
+                }
             }
-            _ => Ok(format!("Install complete! Restart the app.\n\n{}", log.join("\n"))),
         }
+
+        Ok(format!("Install complete! Restart the app if claude is not detected.\n\n{}", log.join("\n")))
     }
 
     #[cfg(not(target_os = "windows"))]

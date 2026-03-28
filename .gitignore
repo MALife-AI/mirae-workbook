@@ -1,5 +1,7 @@
 node_modules/
 dist/
 src-tauri/target/
+build-output/
 *.dmg
+*.msi
 .DS_Store
