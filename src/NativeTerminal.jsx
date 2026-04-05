@@ -3,10 +3,11 @@ import "@xterm/xterm/css/xterm.css";
 import { applyWkWebViewImePatch } from "./wkwebview-ime-patch.js";
 
 // xterm.js + tauri-plugin-pty + WKWebView 한글 IME 패치
-export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode = true, onSessionId }) {
+export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode = true, onSessionId, onPtyReady }) {
   const termRef = useRef(null);
   const xtermRef = useRef(null);
   const fitRef = useRef(null);
+  const ptyRef = useRef(null);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState(null);
 
@@ -92,6 +93,10 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
             ...(!isMac ? { CLAUDE_CODE_GIT_BASH_PATH: (await invoke("get_git_bash_path").catch(() => "C:\\Program Files\\Git\\bin\\bash.exe")).trim() } : {}),
           },
         });
+
+        // pty를 ref에 저장 + 부모에게 write 함수 노출
+        ptyRef.current = pty;
+        if (onPtyReady) onPtyReady({ write: (data) => pty.write(data) });
 
         // 양방향 데이터 전송
         pty.onData(data => term.write(data));
