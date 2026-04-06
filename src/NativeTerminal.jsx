@@ -71,6 +71,8 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
         // 쉘 판별 + 환경변수 확장
         const isMac = navigator.userAgent.includes("Mac");
         const shell = isMac ? "/bin/zsh" : "powershell.exe";
+        const shellArgs = isMac ? [] : ["-ExecutionPolicy", "Bypass", "-NoLogo", "-NoExit", "-Command",
+          "[Console]::InputEncoding = [Console]::OutputEncoding = [System.Text.Encoding]::UTF8; chcp 65001 | Out-Null"];
 
         // Rust에서 확장된 PATH 가져오기
         let expandedPath;
@@ -81,13 +83,14 @@ export default function NativeTerminal({ style, fontSize: fontSizeProp, darkMode
         }
 
         // tauri-plugin-pty로 쉘 스폰
-        const pty = spawn(shell, [], {
+        const pty = spawn(shell, shellArgs, {
           cols: term.cols,
           rows: term.rows,
           cwd: cwd || undefined,
           env: {
             TERM: "xterm-256color",
             LANG: "ko_KR.UTF-8",
+            PYTHONUTF8: "1",
             ...(expandedPath ? { PATH: expandedPath } : {}),
             // Windows: Claude Code에 Git Bash 경로 필요
             ...(!isMac ? { CLAUDE_CODE_GIT_BASH_PATH: (await invoke("get_git_bash_path").catch(() => "C:\\Program Files\\Git\\bin\\bash.exe")).trim() } : {}),

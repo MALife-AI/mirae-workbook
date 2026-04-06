@@ -207,6 +207,8 @@ fn pty_spawn(
             cmd.env("PATH", format!("{};{}", extra, path));
         }
         cmd.env("TERM", "xterm-256color");
+        cmd.env("PYTHONUTF8", "1");
+        cmd.env("LANG", "ko_KR.UTF-8");
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -667,34 +669,55 @@ fn check_claude() -> Result<String, String> {
 fn install_node() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        // Windows: winget 먼저, 실패시 MSI 직접 다운로드
-        let script = "@echo off\r\necho =========================================\r\necho   Node.js Install\r\necho =========================================\r\necho.\r\necho [1/2] Trying winget...\r\nwinget install --id OpenJS.NodeJS.LTS --accept-package-agreements --accept-source-agreements\r\nif %ERRORLEVEL% NEQ 0 (\r\n    echo.\r\n    echo [1/2] winget failed. Downloading directly...\r\n    powershell -Command \"Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile '%TEMP%\\node-install.msi'\"\r\n    msiexec /i \"%TEMP%\\node-install.msi\" /qn /norestart\r\n)\r\necho.\r\necho =========================================\r\necho   Node.js install complete!\r\necho =========================================\r\n";
-        let bat_path = std::env::temp_dir().join("install_node.bat");
-        let _ = fs::write(&bat_path, script);
-        let output = command_with_path("cmd")
-            .args(["/C", &bat_path.to_string_lossy().to_string()])
-            .output();
-
-        // 설치 후 현재 프로세스 PATH에 Node.js 경로 추가 (재시작 없이 npm 찾기)
-        let current = std::env::var("PATH").unwrap_or_default();
         let program_files = std::env::var("ProgramFiles").unwrap_or_else(|_| "C:\\Program Files".to_string());
-        let node_path = format!("{}\\nodejs", program_files);
+        let node_exe = format!("{}\\nodejs\\node.exe", program_files);
         let home = std::env::var("USERPROFILE").unwrap_or_default();
         let npm_global = format!("{}\\AppData\\Roaming\\npm", home);
+        let node_path = format!("{}\\nodejs", program_files);
+
+        // PATH 먼저 확장
+        let current = std::env::var("PATH").unwrap_or_default();
         if !current.contains(&node_path) {
             std::env::set_var("PATH", format!("{};{};{}", npm_global, node_path, current));
         }
 
-        match output {
-            Ok(o) => {
-                let stderr = String::from_utf8_lossy(&o.stderr).to_string();
-                if !o.status.success() && !stderr.is_empty() {
-                    Err(format!("설치 중 오류: {}. https://nodejs.org 에서 직접 설치해주세요.", stderr.trim()))
-                } else {
-                    Ok("Node.js 설치 완료!".to_string())
-                }
-            }
-            Err(e) => Err(format!("설치 오류: {}. https://nodejs.org 에서 직접 설치해주세요.", e)),
+        // 이미 설치되어 있으면 바로 성공
+        if std::path::Path::new(&node_exe).exists() {
+            return Ok("Node.js 이미 설치됨".to_string());
+        }
+
+        // 1차: winget 시도 (관리자 권한 상승 포함)
+        let winget = command_with_path("powershell")
+            .args(["-ExecutionPolicy", "Bypass", "-Command",
+                "Start-Process winget -Verb RunAs -Wait -ArgumentList 'install','--id','OpenJS.NodeJS.LTS','--accept-package-agreements','--accept-source-agreements'"])
+            .output();
+
+        // winget 후 확인
+        if std::path::Path::new(&node_exe).exists() {
+            return Ok("Node.js 설치 완료! (winget)".to_string());
+        }
+
+        // 2차: MSI 직접 다운로드 + 관리자 권한 설치
+        let _ = command_with_path("powershell")
+            .args(["-ExecutionPolicy", "Bypass", "-Command",
+                "Invoke-WebRequest -Uri 'https://nodejs.org/dist/v22.12.0/node-v22.12.0-x64.msi' -OutFile \"$env:TEMP\\node-install.msi\""])
+            .output();
+
+        let msi_path = std::env::temp_dir().join("node-install.msi");
+        if msi_path.exists() {
+            let msi_str = msi_path.to_string_lossy().to_string();
+            let _ = command_with_path("powershell")
+                .args(["-ExecutionPolicy", "Bypass", "-Command",
+                    &format!("Start-Process msiexec -Verb RunAs -Wait -ArgumentList '/i','\"{}\"','/qn','/norestart'", msi_str)])
+                .output();
+            let _ = fs::remove_file(&msi_path);
+        }
+
+        // 최종 확인
+        if std::path::Path::new(&node_exe).exists() {
+            Ok("Node.js 설치 완료!".to_string())
+        } else {
+            Err("Node.js 자동 설치 실패. https://nodejs.org 에서 직접 설치 후 앱을 재시작하세요.".to_string())
         }
     }
 
@@ -991,6 +1014,7 @@ fn load_api_key() -> Result<String, String> {
             // macOS: .app/Contents/MacOS/ → .app과 같은 레벨
             let config_dirs = [
                 exe_dir.join("config.txt"),                                      // Windows: exe 옆
+                exe_dir.join("resources").join("config.txt"),                     // Windows standalone: exe옆/resources/
                 exe_dir.join("..").join("Resources").join("config.txt"),          // macOS 번들 리소스
                 exe_dir.join("..").join("..").join("..").join("config.txt"),      // macOS .app 밖
                 exe_dir.join("..").join("config.txt"),                            // 상위 폴더
