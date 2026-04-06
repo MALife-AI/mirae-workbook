@@ -618,6 +618,14 @@ fn check_claude() -> Result<String, String> {
     {
         let bash_path = find_git_bash().trim().to_string();
 
+        // [선결조건] Claude Code는 Windows에서 Git Bash를 필수로 요구합니다.
+        // bash.exe가 실제로 존재하지 않으면, claude --version은 통과하더라도
+        // 실제 실행 시점에 CLAUDE_CODE_GIT_BASH_PATH 에러가 납니다.
+        // 따라서 bash.exe 미존재 시 즉시 Err를 반환해 install_claude_code(Git 자동설치)가 트리거되게 합니다.
+        if !std::path::Path::new(&bash_path).exists() {
+            return Err("Git for Windows(bash.exe)가 설치되어 있지 않습니다".to_string());
+        }
+
         // 1차: cmd /C claude (CLAUDE_CODE_GIT_BASH_PATH 설정)
         let output = command_with_path("cmd")
             .env("CLAUDE_CODE_GIT_BASH_PATH", &bash_path)
