@@ -2768,6 +2768,53 @@ HTML + Python으로 간단하게 만들어줘.`}</Ref>
       </div>
     ),
   },
+  // ─── 실습 준비: Git Clone ───
+  {
+    section: "최종 실습",
+    title: "실습 준비: 프로젝트 클론",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, justifyContent: "center", height: "100%" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ background: `linear-gradient(135deg, #06b6d422, ${M.ac}22)`, border: `1px solid ${M.ac}44`, borderRadius: 8, padding: "6px 20px", fontSize: 14, fontWeight: 700, color: M.ac, letterSpacing: 2, display: "inline-block", marginBottom: 16 }}>PREPARATION</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, lineHeight: 1.2, marginBottom: 12 }}>실습 프로젝트 <span style={{ color: M.or }}>클론</span>하기</div>
+          <div style={{ fontSize: 17, color: M.tx2, maxWidth: 600, margin: "0 auto", lineHeight: 1.7 }}>
+            최종 실습에서 사용할 <strong style={{ color: M.or }}>서브에이전트 마스터리</strong> 프로젝트를 내 컴퓨터에 다운로드합니다.
+          </div>
+        </div>
+
+        {/* Git Clone 안내 */}
+        <div style={{ ...card({ borderLeft: `4px solid ${M.ac}` }), padding: "16px 20px" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: M.ac, marginBottom: 8 }}>1단계: 터미널에서 프로젝트 클론</div>
+          <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7, marginBottom: 12 }}>
+            아래 터미널에 다음 명령어를 입력하세요. GitHub에서 실습 프로젝트를 내 컴퓨터로 복사합니다.
+          </div>
+          <Ref title="Git Clone 명령어">{`git clone https://github.com/MALife-AI/subagent-mastery.git`}</Ref>
+        </div>
+
+        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "16px 20px" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 8 }}>2단계: 프로젝트 폴더로 이동</div>
+          <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7, marginBottom: 12 }}>
+            클론이 완료되면, 해당 폴더로 이동합니다.
+          </div>
+          <Ref title="폴더 이동">{`cd subagent-mastery`}</Ref>
+        </div>
+
+        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "16px 20px" }}>
+          <div style={{ fontSize: 16, fontWeight: 800, color: "#86efac", marginBottom: 8 }}>3단계: Claude Code 실행</div>
+          <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7, marginBottom: 12 }}>
+            클론한 프로젝트 폴더 안에서 Claude Code를 실행하면 준비 완료!
+          </div>
+          <Ref title="Claude Code 실행">{`claude`}</Ref>
+        </div>
+
+        <div style={{ ...card({ background: M.bg3 }), padding: "10px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 14, color: M.tx2 }}>
+            💡 <strong style={{ color: M.tx }}>subagent-mastery</strong> 프로젝트에는 서브에이전트 패턴, 멀티에이전트 협업 예제, 그리고 실전 과제가 포함되어 있습니다.
+          </div>
+        </div>
+      </div>
+    ),
+  },
   // ─── 최종 실습: 나만의 프로그램 만들기 ───
   {
     section: "최종 실습",
