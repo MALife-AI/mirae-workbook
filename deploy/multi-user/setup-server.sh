@@ -55,8 +55,8 @@ for i in $(seq -w 1 "$USER_COUNT"); do
     continue
   fi
 
-  # 16자 랜덤 비밀번호
-  PASSWORD=$(openssl rand -base64 12)
+  # 비밀번호 = 아이디 (워크숍 단순화용)
+  PASSWORD="${USERNAME}"
 
   useradd -m -s /bin/bash "$USERNAME"
   echo "${USERNAME}:${PASSWORD}" | chpasswd
