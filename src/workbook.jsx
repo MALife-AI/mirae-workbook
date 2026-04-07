@@ -647,6 +647,56 @@ outputs/ 폴더에 저장해줘.`}</Ref>
   },
   {
     section: "모듈 1",
+    title: "Claude 첫 로그인",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 18, justifyContent: "center", height: "100%" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ background: `linear-gradient(135deg, ${M.or}22, #fbbf2422)`, border: `1px solid ${M.or}44`, borderRadius: 8, padding: "6px 20px", fontSize: 14, fontWeight: 700, color: M.or, letterSpacing: 2, display: "inline-block", marginBottom: 14 }}>FIRST LOGIN</div>
+          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx, lineHeight: 1.2, marginBottom: 10 }}>Claude에 <span style={{ color: M.or }}>처음 로그인</span>하기</div>
+          <div style={{ fontSize: 16, color: M.tx2, maxWidth: 640, margin: "0 auto", lineHeight: 1.6 }}>
+            처음 한 번만 로그인하면, 이후엔 <strong style={{ color: M.or }}>claude</strong> 한 줄로 바로 시작합니다.
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.ac}` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: M.ac, marginBottom: 8 }}>1단계 — 터미널에서 claude 실행</div>
+            <Ref title="명령어">{`claude`}</Ref>
+          </div>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 8 }}>2단계 — 로그인 모드 진입</div>
+            <Ref title="claude 안에서 입력">{`/login`}</Ref>
+          </div>
+          <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#86efac", marginBottom: 8 }}>3단계 — URL 복사 → 본인 PC 브라우저에서 열기</div>
+            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.6 }}>
+              화면에 <code style={{ background: M.bg3, padding: "1px 6px", borderRadius: 4 }}>https://claude.ai/oauth/...</code> 형태의 URL이 표시됩니다. 마우스로 드래그해 복사한 뒤 <strong style={{ color: M.tx }}>본인 노트북 브라우저</strong>에 붙여넣어 여세요.
+            </div>
+          </div>
+          <div style={{ ...card({ borderLeft: `4px solid #fbbf24` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: "#fbbf24", marginBottom: 8 }}>4단계 — Claude 로그인 후 코드 받기</div>
+            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.6 }}>
+              본인의 <strong style={{ color: M.tx }}>Claude 계정</strong>으로 로그인하면 인증 코드가 표시됩니다. 그 코드를 복사하세요.
+            </div>
+          </div>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.blM}` }), padding: "14px 18px", gridColumn: "1 / 3" }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: M.blM, marginBottom: 8 }}>5단계 — 코드를 터미널에 붙여넣기</div>
+            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.6 }}>
+              터미널로 돌아와서 받은 코드를 붙여넣고 엔터. <strong style={{ color: "#86efac" }}>"Login successful"</strong> 메시지가 보이면 완료입니다. 토큰이 <code style={{ background: M.bg3, padding: "1px 6px", borderRadius: 4 }}>~/.claude/.credentials.json</code>에 자동 저장되어 다음부터는 로그인 과정 없이 바로 사용 가능합니다.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ ...card({ background: M.bg3 }), padding: "10px 14px", textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: M.tx2 }}>
+            ⚠️ 본인의 Claude 계정이 필요합니다. 계정이 없다면 <strong style={{ color: M.tx }}>claude.ai</strong>에서 먼저 가입하세요.
+          </div>
+        </div>
+      </div>
+    ),
+  },
+  {
+    section: "모듈 1",
     title: "챗봇 vs 에이전트",
     render: () => (
       <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
