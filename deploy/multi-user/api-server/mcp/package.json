@@ -1,0 +1,13 @@
+{
+  "name": "mirae-workbook-mcp",
+  "version": "1.0.0",
+  "description": "Workshop demo MCPs (currently: exchange-rate)",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

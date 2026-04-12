@@ -1,0 +1,33 @@
+[Unit]
+Description=Mirae Workbook API (web mode backend)
+After=network.target
+
+[Service]
+Type=simple
+User=workbook-api
+Group=workbook-readers
+WorkingDirectory=/opt/mirae-workbook-api
+ExecStart=/usr/bin/node /opt/mirae-workbook-api/server.js
+Environment=NODE_ENV=production
+Environment=PORT=6999
+# Anthropic API 키 — 어드민 토큰 사용량 표시용 (선택)
+# 운영자가 설정하려면 /etc/systemd/system/mirae-workbook-api.service.d/api-key.conf 에:
+#   [Service]
+#   Environment=ANTHROPIC_API_KEY=sk-ant-...
+# 후 sudo systemctl daemon-reload && sudo systemctl restart mirae-workbook-api
+Restart=always
+RestartSec=5
+
+# 격리 — sudo 사용을 위해 일부 옵션 완화
+# (NoNewPrivileges/ProtectHome=read-only는 sudo와 충돌하므로 끔)
+ProtectSystem=strict
+PrivateTmp=true
+PrivateDevices=true
+ReadWritePaths=/home /var/lib/mirae-workbook-api
+StateDirectory=mirae-workbook-api
+StateDirectoryMode=0750
+# sudo 자체는 SUID 바이너리이므로 NoNewPrivileges=false 필요
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

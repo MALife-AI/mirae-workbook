@@ -2,12 +2,13 @@ import { useState, useCallback } from "react";
 
 const STORAGE_KEY = "mirae-personalization";
 
+// 워크숍 공통 고정값 — 팀 이름과 주제는 모두 동일하게 (옆 사람과 비교 가능)
+const FIXED_DEPT = "AI 추진 TF";
+const FIXED_TASK = "AI 추진 계획 보고서";
+
 function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch (_) {}
-  return { deptName: "", taskDesc: "", isOnboarded: false };
+  // 항상 고정값 사용. 온보딩 스킵.
+  return { deptName: FIXED_DEPT, taskDesc: FIXED_TASK, isOnboarded: true };
 }
 
 function saveState(state) {

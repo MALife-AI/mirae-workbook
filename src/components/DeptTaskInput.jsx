@@ -113,10 +113,21 @@ export default function DeptTaskInput({ M, onComplete }) {
         transition: "transform .5s cubic-bezier(0.34, 1.56, 0.64, 1), opacity .3s ease-out",
         opacity: visible ? 1 : 0,
       }}>
-        {/* Step indicator */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
-          <div style={{ height: 3, flex: 1, borderRadius: 2, background: M.or }} />
-          <div style={{ height: 3, flex: 1, borderRadius: 2, background: M.or + (canSubmit ? "ff" : "33"), transition: "background .3s" }} />
+        {/* Step indicator + 뒤로가기 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 28 }}>
+          <button
+            onClick={() => { setVisible(false); setTimeout(() => { setStep(0); setVisible(true); }, 200); }}
+            title="이전 단계로"
+            style={{
+              background: "transparent", border: `1px solid ${M.bd}`, color: M.tx2,
+              borderRadius: 8, padding: "6px 12px", fontSize: 13, fontWeight: 700,
+              cursor: "pointer", flexShrink: 0,
+            }}
+          >← 뒤로</button>
+          <div style={{ display: "flex", gap: 8, flex: 1 }}>
+            <div style={{ height: 3, flex: 1, borderRadius: 2, background: M.or }} />
+            <div style={{ height: 3, flex: 1, borderRadius: 2, background: M.or + (canSubmit ? "ff" : "33"), transition: "background .3s" }} />
+          </div>
         </div>
 
         <div style={{ fontSize: 24, fontWeight: 900, color: M.tx, marginBottom: 6, letterSpacing: -0.3 }}>

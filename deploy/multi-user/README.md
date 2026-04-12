@@ -12,8 +12,8 @@ scp -r deploy/multi-user/ root@서버:/root/
 ssh root@서버
 cd /root/multi-user
 chmod +x setup-server.sh setup-ttyd.sh
-sudo ./setup-server.sh 15      # 사용자 + Claude + 자원제한
-sudo ./setup-ttyd.sh 15        # (선택) 브라우저 터미널
+sudo ./setup-server.sh 20      # 사용자 + Claude + 자원제한
+sudo ./setup-ttyd.sh 20        # (선택) 브라우저 터미널
 sudo cat /root/workbook-credentials.txt
 ```
 

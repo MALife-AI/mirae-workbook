@@ -58,7 +58,7 @@ export default function MissionProgressTracker({ missions, currentId, completedS
                 <span style={{
                   color: active ? M.or : M.tx3,
                   fontSize: 12, fontWeight: 700,
-                  fontFamily: "'JetBrains Mono',monospace",
+                  fontFamily: "var(--workbook-mono)",
                 }}>{m.stage}</span>
               )}
             </div>
@@ -83,7 +83,7 @@ export default function MissionProgressTracker({ missions, currentId, completedS
       })}
       <div style={{
         marginLeft: 16, fontSize: 12, fontWeight: 700,
-        color: M.tx3, fontFamily: "'JetBrains Mono',monospace",
+        color: M.tx3, fontFamily: "var(--workbook-mono)",
         background: `${M.bg2}cc`, padding: "4px 10px", borderRadius: 8,
         border: `1px solid ${M.bd}`,
       }}>
