@@ -5,3 +5,4 @@ build-output/
 *.dmg
 *.msi
 .DS_Store
+src-tauri/resources/config.txt
