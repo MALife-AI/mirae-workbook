@@ -1566,7 +1566,7 @@ outputs/ 폴더에 저장해줘.`}</Ref>
       inputDesc: "터미널에서 claude 실행 후 /plan 슬래시 커맨드로 시작. 무엇을 만들지 자연어로 설명",
       outputDesc: "PLAN.md (마크다운) — 4~5개 단계가 번호 매김으로 정리된 보고서 워크플로우",
       outputFiles: ["PLAN.md"],
-      promptTemplate: `/plan AI 추진 TF의 "AI 추진 계획 보고서"를 작성할 거야. 단계별 계획을 세워줘. PLAN.md 파일로 저장. 최대한 간결하게.`,
+      promptTemplate: `/plan AI 추진 TF의 "AI 추진 계획 보고서"를 작성할 거야. 단계별 계획만 세워줘. 코드 작성이나 프로그램 실행은 하지 마. PLAN.md 파일로 저장. 최대한 간결하게.`,
       exampleOutput: `결론: 4-5단계의 보고서 생성 워크플로우.
 1. 추진 배경·목표 정리
 2. 적용 사례 리서치
@@ -1598,8 +1598,8 @@ outputs/ 폴더에 저장해줘.`}</Ref>
         <div style={{ fontSize: 18, color: M.tx2, textAlign: "center" }}>실제로 설계부터 시작해봅시다</div>
         <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
           <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 8 }}>Step 1. Plan 모드 진입</div>
-          <div data-copyable={`/plan AI 추진 TF의 "AI 추진 계획 보고서"를 작성할 거야. 단계별 계획을 세워줘. PLAN.md 파일로 저장. 최대한 간결하게.`} title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            /plan AI 추진 TF의 "AI 추진 계획 보고서"를 작성할 거야. 단계별 계획을 세워줘. <strong style={{ color: M.tx }}>PLAN.md</strong> 파일로 저장. 최대한 간결하게.
+          <div data-copyable={`/plan AI 추진 TF의 "AI 추진 계획 보고서"를 작성할 거야. 단계별 계획만 세워줘. 코드 작성이나 프로그램 실행은 하지 마. PLAN.md 파일로 저장. 최대한 간결하게.`} title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
+            /plan AI 추진 TF의 "AI 추진 계획 보고서"를 작성할 거야. 단계별 계획만 세워줘. 코드 작성이나 프로그램 실행은 하지 마. <strong style={{ color: M.tx }}>PLAN.md</strong> 파일로 저장. 최대한 간결하게.
           </div>
           <div style={{ marginTop: 8, fontSize: 13, color: M.tx3 }}>🎯 목표 파일: <code style={{ color: M.or }}>PLAN.md</code></div>
         </div>
@@ -3079,404 +3079,176 @@ outputs/보고서_고객분석.docx
         </div>
 
         <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "16px 20px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 10 }}>오늘 배운 흐름 — 이 순서대로 직접 만듭니다</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
-            {[
-              { step: "1", label: "Plan", color: M.bl },
-              { step: "2", label: "CLAUDE.md", color: M.or },
-              { step: "3", label: "Skill", color: "#059669" },
-              { step: "4", label: "Command", color: M.ac },
-              { step: "5", label: "Hook", color: M.wn },
-              { step: "6", label: "실행", color: M.gd },
-              { step: "7", label: "Web UI", color: M.blM },
-            ].map((s, i) => (
-              <div key={s.step} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ background: s.color, color: "#fff", borderRadius: "50%", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 13, fontWeight: 800 }}>{s.step}</div>
-                <span style={{ color: s.color, fontWeight: 700, fontSize: 15 }}>{s.label}</span>
-                {i < 6 && <span style={{ color: M.tx3, fontSize: 18 }}>→</span>}
+          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 10 }}>프롬프트 하나로 전부 만듭니다</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            {["Plan", "CLAUDE.md", "Skill", "Command", "Hook"].map((label, i) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ background: M.or, color: "#fff", borderRadius: 6, padding: "3px 10px", fontSize: 13, fontWeight: 700 }}>{label}</span>
+                {i < 4 && <span style={{ color: M.tx3, fontSize: 14 }}>+</span>}
               </div>
             ))}
           </div>
         </div>
 
         <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: M.gd, marginBottom: 6 }}>작업 위치</div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: M.gd, marginBottom: 6 }}>진행 방식</div>
           <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.7 }}>
-            이미 <code style={{ background: M.bg3, padding: "1px 6px", borderRadius: 4, color: M.or }}>~/subagent-mastery</code> 폴더가 준비되어 있습니다.
-            터미널은 자동으로 이 폴더에서 시작하므로 그대로 진행하면 됩니다.
+            각 단계에서 <strong style={{ color: M.or }}>하나의 프롬프트</strong>로 필요한 파일을 한번에 만듭니다.
+            체험과 달리 하나씩 나눠서 할 필요 없습니다.
           </div>
         </div>
       </div>
     ),
   },
 
-  // ─── Step 1. Plan ───
-  {
+  // ─── Step 1~5: 프롬프트 편집 + Step 6: 실행 + Step 7: 웹 ───
+  ...[
+    { id: "final-plan", stage: 8, label: "1. Plan", key: "plan", color: M.bl, title: "Step 1. Plan 프롬프트 다듬기", desc: "자동화 워크플로우 설계", icon: "📋", hint: "어떤 업무를 자동화할지 구체적으로 적을수록 결과가 좋습니다" },
+    { id: "final-claudemd", stage: 9, label: "2. CLAUDE.md", key: "claudemd", color: M.or, title: "Step 2. CLAUDE.md 프롬프트 다듬기", desc: "규칙서 (언어, 톤, 브랜드)", icon: "📋", hint: "부서 특성에 맞는 톤이나 보안 규칙을 추가해보세요" },
+    { id: "final-skill", stage: 10, label: "3. Skill", key: "skill", color: "#059669", title: "Step 3. Skill 프롬프트 다듬기", desc: "업무 표준 절차", icon: "⚙️", hint: "매번 같은 품질로 나오게 하려면 절차를 구체적으로 적으세요" },
+    { id: "final-command", stage: 11, label: "4. Command", key: "command", color: M.ac, title: "Step 4. Command 프롬프트 다듬기", desc: "단축 명령어", icon: "⌨️", hint: "어떤 인자를 받을지, 어떤 스킬을 호출할지 정해주세요" },
+    { id: "final-hook", stage: 12, label: "5. Hook", key: "hook", color: M.wn, title: "Step 5. Hook 프롬프트 다듬기", desc: "개인정보 차단 안전장치", icon: "🛡️", hint: "업무 특성에 맞는 차단 규칙을 추가해보세요" },
+  ].map(step => ({
     section: "4. 실습 프로젝트",
-    title: "Step 1. 내 프로그램 정의하기 (Plan)",
+    title: step.title,
     mission: {
-      id: "final-plan", stage: 8, label: "Final: Plan",
-      description: "본인 업무로 처음부터 직접 설계합니다",
-      goal: "본인 부서의 실제 반복 업무 한 가지를 자동화하는 프로그램의 설계 문서를 PLAN.md 로 작성",
-      inputDesc: "/plan 으로 시작 + 본인 역할, 자동화할 업무, 원하는 결과물을 자연어로 설명",
-      outputDesc: "PLAN.md — 본인 업무의 자동화 워크플로우 (단계 + 입출력 + 산출물)",
-      outputFiles: ["PLAN.md"],
-      promptTemplate: `/plan 나는 [내 부서/역할]이야. [반복하는 업무]를 자동화하는 프로그램을 만들고 싶어. 어떤 기능이 필요하고, 어떤 파일을 만들어야 할지 설계해줘. 그리고 PLAN.md 파일로 저장해줘.`,
-      hints: [
-        "/plan 으로 시작해서 본인의 업무를 자유롭게 설명하세요",
-        "내 역할, 자동화할 업무, 원하는 결과물을 포함하면 좋습니다",
-        "AI가 설계안을 보여주면 검토 후 PLAN.md로 저장 요청",
-      ],
-      mandatory: [],
-      challenge: [],
-      checklist: [],
-      autoChecks: [{ type: "file-exists", path: "PLAN.md" }],
-    },
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: M.bl, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>1</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>내 프로그램 <span style={{ color: M.or }}>정의하기</span></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.bl}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.bl, marginBottom: 6 }}>먼저 생각해보세요</div>
-          <div style={{ fontSize: 16, color: M.tx2, lineHeight: 1.8 }}>
-            내가 매주/매월 <strong style={{ color: M.or }}>반복하는 업무</strong>는 뭔가요?<br/>
-            그 업무를 AI가 대신 해준다면 어떤 결과물이 나와야 하나요?
-          </div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 8 }}>Plan 모드로 설계 시작</div>
-          <div data-copyable="/plan 나는 [내 부서/역할]이야. [반복하는 업무]를 자동화하는 프로그램을 만들고 싶어. 어떤 기능이 필요하고, 어떤 파일을 만들어야 할지 설계해줘. 그리고 PLAN.md 파일로 저장해줘." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            /plan 나는 [내 부서/역할]이야. [반복하는 업무]를 자동화하는 프로그램을 만들고 싶어. 어떤 기능이 필요하고, 어떤 파일을 만들어야 할지 설계해줘. 그리고 <strong style={{ color: M.tx }}>PLAN.md</strong> 파일로 저장해줘.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: M.tx3 }}>🎯 목표 파일: <code style={{ color: M.or }}>PLAN.md</code></div>
-        </div>
-        <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px" }}>
-          <div style={{ fontSize: 15, color: M.tx2 }}><strong style={{ color: M.or }}>[  ]</strong> 안을 본인의 실제 업무로 바꿔서 입력하세요.</div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ─── Step 2. CLAUDE.md ───
-  {
-    section: "4. 실습 프로젝트",
-    title: "Step 2. 규칙서 만들기 (CLAUDE.md)",
-    mission: {
-      id: "final-claudemd", stage: 9, label: "Final: CLAUDE.md",
-      description: "내 프로젝트의 규칙서를 만듭니다",
-      goal: "본인 업무에 매번 자동 적용될 규칙서 (언어/톤/색상/보안) 를 한 파일로 정리",
-      inputDesc: "Claude 에게 본인 부서/역할 맞춤 CLAUDE.md 만들어달라고 요청",
-      outputDesc: "프로젝트 루트의 CLAUDE.md — 한국어 + 브랜드 색상 + 톤 가이드",
-      outputFiles: ["CLAUDE.md"],
-      promptTemplate: `현재 폴더에 CLAUDE.md를 만들어줘. 한국어로 작성하고, 미래에셋생명 브랜드 색상 #F58220 명시. 본인 업무 규칙(언어, 톤, 보안)을 간결하게 정리.`,
-      hints: [
-        "CLAUDE.md 만들어줘 로 시작하세요",
-        "언어, 톤, 색상, 보안 규칙 등을 자유롭게 추가",
-        "한 번 만들면 매번 자동 적용됩니다",
-      ],
-      mandatory: [],
-      challenge: [],
-      checklist: [],
-      autoChecks: [{ type: "file-exists", path: "CLAUDE.md" }],
-    },
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: M.or, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>2</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>규칙서 만들기 <span style={{ color: M.or }}>CLAUDE.md</span></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 6 }}>복습: CLAUDE.md = 매번 자동 적용되는 규칙</div>
-          <div style={{ fontSize: 15, color: M.tx3 }}>언어, 톤, 색상, 보안 정책 — 한 번 쓰면 다시 말할 필요 없음</div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.gd, marginBottom: 8 }}>터미널에 입력</div>
-          <div data-copyable="현재 폴더에 CLAUDE.md를 만들어줘. 한국어로 작성하고, 미래에셋생명 브랜드 색상 #F58220 명시. 내 업무([부서/역할])에 맞는 작성 규칙(언어, 톤, 보안)을 간결하게 정리해줘." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            현재 폴더에 CLAUDE.md를 만들어줘. 한국어로 작성하고, 미래에셋생명 브랜드 색상 #F58220 명시. 내 업무([부서/역할])에 맞는 작성 규칙(언어, 톤, 보안)을 간결하게 정리해줘.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: M.tx3 }}>🎯 목표 파일: <code style={{ color: M.or }}>CLAUDE.md</code></div>
-        </div>
-        <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px" }}>
-          <div style={{ fontSize: 15, color: M.tx2 }}>본인 업무에 맞게 자유롭게 추가하세요. 생성 후 <code style={{ color: M.or }}>cat CLAUDE.md</code>로 확인.</div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ─── Step 3. Skill ───
-  {
-    section: "4. 실습 프로젝트",
-    title: "Step 3. 업무 매뉴얼 만들기 (Skill)",
-    mission: {
-      id: "final-skill", stage: 10, label: "Final: Skill",
-      description: "내 업무의 표준 절차를 매뉴얼로 만듭니다",
-      goal: "본인 핵심 업무의 표준 절차를 Skill 파일로 영구화 — 다음부턴 한 줄로 동일 품질",
-      inputDesc: "Claude 에게 .claude/skills/my-task/SKILL.md 만들어달라고 요청 + 본인 업무 절차 명시",
-      outputDesc: ".claude/skills/my-task/SKILL.md — frontmatter + 입력/절차/출력",
-      outputFiles: [".claude/skills/my-task/SKILL.md"],
-      promptTemplate: `[내 핵심 업무] 스킬을 만들어줘. .claude/skills/my-task/SKILL.md 에 저장. 매번 동일한 품질로 결과물이 나오도록 단계별 절차를 포함.`,
-      hints: [
-        "[핵심 업무] 스킬을 만들어줘 로 시작하세요",
-        "반복되는 업무의 절차를 단계별로 정리해달라고 하면 됩니다",
-        "구체적일수록 결과 품질이 올라갑니다",
-      ],
-      mandatory: [
-      ],
-      challenge: [
-      ],
-      checklist: [],
-      autoChecks: [{ type: "file-exists", path: ".claude/skills/my-task/SKILL.md" }],
-    },
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: "#059669", color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>3</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>업무 매뉴얼 <span style={{ color: "#059669" }}>Skill</span></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #059669` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: "#059669", marginBottom: 6 }}>복습: Skill = 재사용 가능한 업무 절차서</div>
-          <div style={{ fontSize: 15, color: M.tx3 }}>한 번 만들면 어떤 프로젝트에서든 같은 품질로 작동</div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.gd, marginBottom: 8 }}>터미널에 입력</div>
-          <div data-copyable="[내 핵심 업무] 스킬을 만들어줘. .claude/skills/my-task/SKILL.md 에 저장. 매번 동일한 품질로 결과물이 나오도록 입력, 절차(5단계), 출력 형식을 포함." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            [내 핵심 업무] 스킬을 만들어줘. .claude/skills/my-task/SKILL.md 에 저장. 매번 동일한 품질로 결과물이 나오도록 입력, 절차(5단계), 출력 형식을 포함.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: M.gd }}>🎯 목표 파일: <code style={{ color: "#059669" }}>.claude/skills/my-task/SKILL.md</code></div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div style={{ ...card(), padding: "10px 14px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: M.or, marginBottom: 4 }}>예시 A</div>
-            <div style={{ fontSize: 14, color: M.tx3 }}>"보고서 작성 스킬 만들어줘. 6섹션 구조, 출처 각주 필수"</div>
-          </div>
-          <div style={{ ...card(), padding: "10px 14px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: M.or, marginBottom: 4 }}>예시 B</div>
-            <div style={{ fontSize: 14, color: M.tx3 }}>"경쟁사 분석 스킬 만들어줘. 3사 비교표 + 전략적 시사점"</div>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ─── Step 4. Command ───
-  {
-    section: "4. 실습 프로젝트",
-    title: "Step 4. 단축 명령어 만들기 (Command)",
-    mission: {
-      id: "final-command", stage: 11, label: "Final: Command",
-      description: "한 마디로 전체 워크플로우를 실행하는 명령어",
-      goal: "본인 업무 자동화 워크플로우를 슬래시 커맨드 한 줄로 실행하게 만든다",
-      inputDesc: "Claude 에게 .claude/commands/my-cmd.md 만들어달라고 요청 + 작업 순서 명시",
-      outputDesc: ".claude/commands/my-cmd.md — frontmatter (description) + 워크플로우 단계",
-      outputFiles: [".claude/commands/my-cmd.md"],
-      promptTemplate: `[명령어이름] 커맨드를 .claude/commands/my-cmd.md 로 만들어줘. [작업1] → [작업2] → [작업3] 순서로 자동 실행하는 워크플로우.`,
-      hints: [
-        "/[명령어이름] 커맨드를 만들어줘 로 시작",
-        "어떤 작업을 어떤 순서로 실행할지 설명",
-        "앞서 만든 Skill을 연결하면 더 강력합니다",
-      ],
-      mandatory: [],
-      challenge: [
-      ],
-      checklist: [],
-      autoChecks: [{ type: "file-exists", path: ".claude/commands/my-cmd.md" }],
-    },
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: M.ac, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>4</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>단축 명령어 <span style={{ color: M.ac }}>Command</span></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.ac}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.ac, marginBottom: 6 }}>복습: Command = 복잡한 작업을 한 마디로</div>
-          <div style={{ fontSize: 15, color: M.tx3 }}>여러 Skill을 연결해서 /명령어 한 번으로 전체 워크플로우 실행</div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.gd, marginBottom: 8 }}>터미널에 입력</div>
-          <div data-copyable="[명령어이름] 커맨드를 .claude/commands/my-cmd.md 로 만들어줘. [작업1] → [작업2] → [작업3] 순서로 자동 실행하는 워크플로우. 앞서 만든 my-task 스킬도 연결해줘." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            [명령어이름] 커맨드를 .claude/commands/my-cmd.md 로 만들어줘. [작업1] → [작업2] → [작업3] 순서로 자동 실행하는 워크플로우. 앞서 만든 my-task 스킬도 연결해줘.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: M.tx3 }}>🎯 목표 파일: <code style={{ color: M.ac }}>.claude/commands/my-cmd.md</code></div>
-        </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div style={{ ...card(), padding: "10px 14px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: M.or, marginBottom: 4 }}>예시 A</div>
-            <div style={{ fontSize: 14, color: M.tx3 }}>"/report 만들어줘. 리서치 → 보고서 → PPT 순서"</div>
-          </div>
-          <div style={{ ...card(), padding: "10px 14px" }}>
-            <div style={{ fontSize: 14, fontWeight: 700, color: M.or, marginBottom: 4 }}>예시 B</div>
-            <div style={{ fontSize: 14, color: M.tx3 }}>"/weekly 만들어줘. 이번 주 작업 정리 → 보고서 생성"</div>
-          </div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ─── Step 5. Hook ───
-  {
-    section: "4. 실습 프로젝트",
-    title: "Step 5. 안전장치 만들기 (Hook)",
-    mission: {
-      id: "final-hook", stage: 12, label: "Final: Hook",
-      description: "안전장치를 설치합니다",
-      goal: "본인 업무에 맞는 안전장치 (PII / 민감 데이터 차단) 를 자동으로 적용",
-      inputDesc: "Claude 에게 .claude/hooks/my-check.sh 만들어달라고 요청 + 차단할 패턴 설명",
-      outputDesc: ".claude/hooks/my-check.sh + settings.local.json 에 PreToolUse hook 등록",
-      outputFiles: [".claude/hooks/my-check.sh", ".claude/settings.local.json"],
-      promptTemplate: `파일을 저장할 때 개인정보(주민번호, 전화번호, 이메일)가 포함되어 있으면 차단하는 훅을 만들어줘. .claude/hooks/my-check.sh 로 저장하고 settings.local.json에 PreToolUse hook 등록. 단, outputs/ 폴더와 web/ 폴더는 검사 대상에서 제외해줘.`,
-      hints: [
-        "파일 저장 시 검사할 규칙을 만들어달라고 하세요",
-        "개인정보, 민감 데이터 등 차단하고 싶은 패턴을 설명",
-        "업무 특성에 맞는 검사 규칙을 자유롭게 추가",
-      ],
-      mandatory: [],
-      challenge: [
-      ],
-      checklist: [],
-      autoChecks: [{ type: "file-exists", path: ".claude/hooks/my-check.sh" }],
-    },
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: M.wn, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>5</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>안전장치 <span style={{ color: M.wn }}>Hook</span></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #fbbf24` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.wn, marginBottom: 6 }}>복습: Hook = 예외 없는 100% 자동 검사</div>
-          <div style={{ fontSize: 15, color: M.tx3 }}>AI의 실수까지 잡아내는 프로그램 기반 안전장치</div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.gd, marginBottom: 8 }}>터미널에 입력</div>
-          <div data-copyable="파일을 저장할 때 개인정보(주민번호, 전화번호, 이메일)가 포함되어 있으면 차단하는 훅을 만들어줘. .claude/hooks/my-check.sh 로 저장하고 settings.local.json에 PreToolUse hook 등록." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6 }}>
-            파일을 저장할 때 개인정보(주민번호, 전화번호, 이메일)가 포함되어 있으면 차단하는 훅을 만들어줘. .claude/hooks/my-check.sh 로 저장하고 settings.local.json에 PreToolUse hook 등록.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: M.wn }}>🎯 목표 파일: <code style={{ color: M.wn }}>.claude/hooks/my-check.sh</code></div>
-        </div>
-        <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px" }}>
-          <div style={{ fontSize: 15, color: M.tx2 }}>본인 업무에 맞는 검사 규칙을 추가하세요. 예: 금소법 위반 표현, 미승인 약관 문구 등</div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ─── Step 6. 실행 ───
-  {
-    section: "4. 실습 프로젝트",
-    title: "Step 6. 실행하고 확인하기",
-    mission: {
-      id: "final-run", stage: 13, label: "Final: 실행",
-      description: "만든 Command를 실행하고 결과물을 확인합니다",
-      goal: "본인이 만든 Command 를 실행해서 outputs/ 폴더에 결과물이 생성되는지 확인",
-      inputDesc: "터미널에서 본인이 만든 /명령어 를 실행",
-      outputDesc: "outputs/ 폴더에 결과 파일 (.docx, .md 등) 이 생성됨",
+      id: step.id, stage: step.stage, label: step.label,
+      description: step.desc,
+      goal: `프롬프트를 본인 업무에 맞게 수정`,
+      inputDesc: "기본 프롬프트를 편집하세요 — 아직 실행하지 않습니다",
+      outputDesc: "편집 완료 (파일 생성은 Step 6에서)",
       outputFiles: [],
-      promptTemplate: ``,
-      hints: [
-        "방금 만든 /명령어 를 입력하세요",
-        "결과가 마음에 안 들면 Skill을 수정하고 다시 실행",
-        "반복할수록 품질이 올라갑니다",
-      ],
-      mandatory: [],
-      challenge: [
-      ],
-      checklist: [],
-      autoChecks: null,
-    },
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: M.gd, color: "#1a1a2e", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>6</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>실행하고 <span style={{ color: M.gd }}>확인하기</span></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.gd, marginBottom: 8 }}>방금 만든 Command를 실행해보세요</div>
-          <div data-copyable="/[내가 만든 명령어]" title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", fontSize: 18 }}>
-            /[내가 만든 명령어]
-          </div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 16, fontWeight: 800, color: M.or, marginBottom: 8 }}>확인 포인트</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {[
-              "CLAUDE.md 규칙이 자동으로 적용되었는가? (언어, 색상, 보안)",
-              "Skill 절차대로 결과물이 생성되었는가? (구조, 품질)",
-              "Hook이 개인정보를 차단했는가? (안전장치 작동)",
-              "outputs/ 폴더에 결과 파일이 저장되었는가?",
-            ].map((q, i) => (
-              <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                <span style={{ color: M.or, fontWeight: 700, fontSize: 16, flexShrink: 0 }}>□</span>
-                <span style={{ color: M.tx2, fontSize: 15, lineHeight: 1.6 }}>{q}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ ...card({ background: M.bg3 }), textAlign: "center" }}>
-          <div style={{ fontSize: 16, color: M.tx2 }}>결과가 마음에 안 들면? <strong style={{ color: M.or }}>Skill 파일을 수정</strong>하고 다시 실행하세요. 점점 좋아집니다.</div>
-        </div>
-      </div>
-    ),
-  },
-
-  // ─── Step 7. 웹페이지로 ───
-  {
-    section: "4. 실습 프로젝트",
-    title: "Step 7. 웹페이지로 만들기",
-    mission: {
-      id: "final-web", stage: 14, label: "Final: Web UI",
-      hiddenUntil: ["final-plan", "final-claudemd", "final-skill", "final-command", "final-hook", "final-run"],
-      description: "내 기능을 누구나 쓸 수 있는 웹페이지로",
-      goal: "본인 기능을 HTML 페이지로 감싸서 팀원도 브라우저에서 쓸 수 있게 만든다",
-      inputDesc: "Claude 에게 web/index.html 만들어달라고 요청 — 입력폼 + 실행 버튼 + 결과 표시",
-      outputDesc: "web/index.html — 미래에셋 브랜드 오렌지 적용, 입력·버튼·결과 영역 포함",
-      outputFiles: ["web/index.html"],
-      promptTemplate: `web/index.html 을 만들어줘. 백엔드 서버 연동 없이 단일 HTML 파일로 완전히 동작해야 해. 입력 textarea + '실행' 버튼 + 결과 표시 영역. 버튼 클릭 시 JavaScript로 입력값을 가공해서 결과를 화면에 표시. fetch나 외부 API 호출 없이 순수 프론트엔드만으로 동작. 디자인은 미래에셋생명 브랜드 오렌지 #F58220. CSS도 HTML 안에 포함. 최대한 간결하게.`,
-      hints: [
-        "백엔드 없이 HTML+JS만으로 동작하는 페이지를 만듭니다",
-        "버튼/입력폼/결과영역 3가지만 있으면 충분",
-        "생성 후 아래 '미리보기' 버튼으로 바로 확인 가능",
-      ],
-      mandatory: [],
-      challenge: [
-      ],
-      checklist: [],
-      autoChecks: [
-        { type: "file-exists", path: "web/index.html" },
-      ],
+      promptTemplate: "",
+      hints: [step.hint, "아직 터미널에 입력하지 마세요 — 다듬기만"],
+      mandatory: [], challenge: [], checklist: [],
+      autoChecks: null, manualOnly: true,
     },
     render: () => (
       <div style={{ display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", height: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ background: M.blM, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>7</div>
-          <div style={{ fontSize: 30, fontWeight: 900, color: M.tx }}>웹페이지로 <span style={{ color: M.blM }}>만들기</span></div>
+          <div style={{ background: step.color, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>{step.icon}</div>
+          <div>
+            <div style={{ fontSize: 24, fontWeight: 900, color: M.tx }}>{step.title}</div>
+            <div style={{ fontSize: 13, color: M.tx3 }}>{step.desc} — 본인 업무에 맞게 수정하세요</div>
+          </div>
+        </div>
+        <div style={{ ...card({ borderLeft: `4px solid ${step.color}` }), padding: "14px 18px" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: step.color, marginBottom: 8 }}>✏️ 프롬프트 편집</div>
+          <textarea
+            value={practicePrompts[step.key]}
+            onChange={e => updatePrompt(step.key, e.target.value)}
+            style={{
+              width: "100%", minHeight: 120, resize: "vertical",
+              background: M.bg3, color: M.or,
+              border: `1px solid ${step.color}33`, borderRadius: 10,
+              padding: "12px 14px", fontFamily: "var(--workbook-mono)",
+              fontSize: 13, lineHeight: 1.7, outline: "none", boxSizing: "border-box",
+            }}
+            onFocus={e => { e.target.style.borderColor = step.color + "88"; }}
+            onBlur={e => { e.target.style.borderColor = step.color + "33"; }}
+          />
+          <div style={{ marginTop: 6, fontSize: 11, color: M.tx3 }}>💡 {step.hint}</div>
+        </div>
+        <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px" }}>
+          <div style={{ fontSize: 13, color: M.tx2 }}>⚠️ 아직 터미널에 입력하지 마세요. <strong style={{ color: M.or }}>Step 6에서 한번에 실행</strong>합니다.</div>
+        </div>
+      </div>
+    ),
+  })),
+
+  // ─── Step 6. 한번에 실행 ───
+  {
+    section: "4. 실습 프로젝트",
+    title: "Step 6. 한번에 실행하기",
+    mission: {
+      id: "final-run", stage: 13, label: "6. 실행",
+      description: "다듬은 프롬프트를 합쳐서 한번에 실행합니다",
+      goal: "Step 1~5에서 작성한 프롬프트를 합쳐서 터미널에서 실행",
+      inputDesc: "합쳐진 프롬프트를 복사해서 터미널에 붙여넣기",
+      outputDesc: "PLAN.md, CLAUDE.md, Skill, Command, Hook 파일 일괄 생성",
+      outputFiles: ["PLAN.md", "CLAUDE.md", ".claude/skills/my-task/SKILL.md", ".claude/commands/my-cmd.md"],
+      promptTemplate: "",
+      hints: ["복사 버튼으로 합쳐진 프롬프트를 터미널에 붙여넣으세요", "완료 후 /exit → claude 재시작"],
+      mandatory: [], challenge: [], checklist: [],
+      autoChecks: [
+        { type: "file-exists", path: "PLAN.md" },
+        { type: "file-exists", path: "CLAUDE.md" },
+      ],
+    },
+    render: () => {
+      const combined = `다음을 한번에 만들어줘. 질문하지 말고 바로 실행.\n\n--- 1. Plan ---\n${practicePrompts.plan}\n\n--- 2. CLAUDE.md ---\n${practicePrompts.claudemd}\n\n--- 3. Skill ---\n${practicePrompts.skill}\n\n--- 4. Command ---\n${practicePrompts.command}\n\n--- 5. Hook ---\n${practicePrompts.hook}`;
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", height: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div style={{ background: M.gd, color: "#1a1a2e", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>▶</div>
+            <div style={{ fontSize: 26, fontWeight: 900, color: M.tx }}>한번에 <span style={{ color: M.gd }}>실행하기</span></div>
+          </div>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.gd}` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: M.gd, marginBottom: 8 }}>합쳐진 프롬프트 (Step 1~5)</div>
+            <div style={{
+              background: M.bg3, borderRadius: 10, padding: "12px 14px",
+              border: `1px solid ${M.bd}`, fontFamily: "var(--workbook-mono)",
+              fontSize: 12, color: M.or, lineHeight: 1.7,
+              maxHeight: 200, overflowY: "auto", whiteSpace: "pre-wrap",
+            }}>
+              {combined}
+            </div>
+            <button
+              onClick={() => { copyToClipboard(combined); }}
+              style={{
+                marginTop: 10, width: "100%",
+                background: `linear-gradient(135deg, ${M.gd}, #059669)`,
+                color: "#fff", border: "none", borderRadius: 10,
+                padding: "12px", fontSize: 14, fontWeight: 800,
+                cursor: "pointer", boxShadow: `0 2px 12px ${M.gd}44`,
+              }}
+            >
+              📋 합쳐진 프롬프트 복사 → 터미널에 붙여넣기
+            </button>
+          </div>
+          <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px" }}>
+            <div style={{ fontSize: 13, color: M.tx2, lineHeight: 1.7 }}>
+              1. 위 버튼으로 복사<br/>
+              2. 터미널에 붙여넣기 (Ctrl+V)<br/>
+              3. 완료 후 <code style={{ color: M.or }}>/exit</code> → <code style={{ color: M.or }}>claude</code> 재시작하면 커맨드 사용 가능
+            </div>
+          </div>
+        </div>
+      );
+    },
+  },
+
+  // ─── Step 7. 웹 배포 ───
+  {
+    section: "4. 실습 프로젝트",
+    title: "Step 7. 웹페이지로 만들기",
+    mission: {
+      id: "final-web", stage: 14, label: "7. Web",
+      description: "만든 기능을 웹페이지로 감쌉니다",
+      goal: "단일 HTML 페이지로 팀원도 브라우저에서 쓸 수 있게 만듦",
+      inputDesc: "Claude에게 web/index.html 만들어달라고 요청",
+      outputDesc: "web/index.html — 백엔드 없이 단독 동작",
+      outputFiles: ["web/index.html"],
+      promptTemplate: `web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작해야 해. 입력 textarea + 실행 버튼 + 결과 표시. JavaScript로 처리. 디자인은 미래에셋 오렌지 #F58220. CSS도 HTML 안에 포함. 최대한 간결하게.`,
+      hints: ["백엔드 없이 HTML+JS만으로 동작하는 페이지", "미리보기 버튼으로 바로 확인 가능"],
+      mandatory: [], challenge: [], checklist: [],
+      autoChecks: [{ type: "file-exists", path: "web/index.html" }],
+    },
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", height: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <div style={{ background: M.blM, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>🌐</div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: M.tx }}>웹페이지로 <span style={{ color: M.blM }}>만들기</span></div>
         </div>
         <div style={{ ...card({ borderLeft: `4px solid ${M.blM}` }), padding: "14px 18px" }}>
           <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7 }}>
-            지금까지 만든 기능을 <strong style={{ color: M.or }}>단일 HTML 페이지</strong>로 만듭니다.
-            백엔드 서버 없이 브라우저만으로 동작하는 페이지입니다.
+            만든 기능을 <strong style={{ color: M.or }}>단일 HTML 페이지</strong>로 만듭니다. 백엔드 없이 브라우저만으로 동작.
           </div>
         </div>
         <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 8 }}>예시 프롬프트</div>
-          <div data-copyable="web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작해야 해. 입력 textarea + 실행 버튼 + 결과 표시. JavaScript로 입력값을 가공해서 결과 표시. fetch나 외부 API 없이 순수 프론트엔드만. 디자인은 미래에셋생명 오렌지 #F58220. CSS도 HTML 안에 포함. 최대한 간결하게." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", fontSize: 13, lineHeight: 1.6 }}>
-            web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작. 입력 textarea + 실행 버튼 + 결과 표시. JavaScript로 처리. 디자인은 오렌지 #F58220. 최대한 간결하게.
-          </div>
-          <div style={{ marginTop: 8, fontSize: 13, color: M.tx3 }}>🎯 목표 파일: <code style={{ color: M.or }}>web/index.html</code></div>
-        </div>
-        <div style={{ ...card({ borderLeft: `4px solid #86efac` }), padding: "12px 16px" }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: M.gd, marginBottom: 8 }}>미리보기</div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            <button
-              onClick={() => {
-                window.open(`/api/preview?path=${encodeURIComponent("web/index.html")}`, "_blank", "width=800,height=600");
-              }}
-              style={{ background: M.gd, color: "#1a1a2e", border: "none", borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 800, cursor: "pointer" }}>
-              🌐 새 창에서 미리보기
-            </button>
-          </div>
-          <div style={{ marginTop: 8, fontSize: 12, color: M.tx3 }}>
-            별도 서버 실행 없이 바로 미리보기 가능합니다.
+          <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 8 }}>프롬프트</div>
+          <div data-copyable="web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작. 입력 textarea + 실행 버튼 + 결과 표시. JavaScript로 처리. 디자인은 오렌지 #F58220. 최대한 간결하게." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 13 }}>
+            web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작. 입력 textarea + 실행 버튼 + 결과 표시. 디자인은 오렌지 #F58220. 최대한 간결하게.
           </div>
         </div>
       </div>
@@ -4194,6 +3966,15 @@ function SetupSplash({ onDone }) {
 export default function App() {
   const isMac = typeof navigator !== "undefined" && navigator.platform.toUpperCase().indexOf('MAC') >= 0;
   const [page, setPage] = useState(0);
+  // 실습 프롬프트 편집 상태 — 각 스텝에서 편집, Step 6에서 합쳐서 실행
+  const [practicePrompts, setPracticePrompts] = useState({
+    plan: "나는 [내 부서/역할]이야. [반복하는 업무]를 자동화하는 워크플로우를 설계해줘. 코드 작성은 하지 마. PLAN.md 파일로 저장.",
+    claudemd: "CLAUDE.md를 만들어줘. 한국어, 브랜드 색상 #F58220, 내 업무에 맞는 규칙서. 간결하게.",
+    skill: ".claude/skills/my-task/SKILL.md 를 만들어줘. 내 업무의 표준 절차를 스킬로 정리. 간결하게.",
+    command: ".claude/commands/my-cmd.md 커맨드를 만들어줘. my-task 스킬을 호출하는 워크플로우. 간결하게.",
+    hook: ".claude/hooks/my-check.sh + settings.local.json 을 만들어줘. 개인정보(주민번호, 전화번호) 차단 훅. outputs/와 web/ 폴더는 제외. 간결하게.",
+  });
+  const updatePrompt = (key, val) => setPracticePrompts(p => ({ ...p, [key]: val }));
   const [skillTab, setSkillTab] = useState(0);
   const [deptTab, setDeptTab] = useState(0);
   const [projectPath, setProjectPath] = useState("");
