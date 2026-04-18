@@ -3,7 +3,7 @@ import MissionProgressTracker from "./MissionProgressTracker.jsx";
 import Confetti from "./Confetti.jsx";
 import FileExplorer from "./FileExplorer.jsx";
 import AssistantOverlay from "./AssistantOverlay.jsx";
-import { isTauri, runMissionChecks, copyToClipboard, clearMySession, sendToMyTerminal, setDemoMode, gradeMission, readProjectFile, cleanWorkspace } from "../lib/runtime.js";
+import { isTauri, runMissionChecks, copyToClipboard, clearMySession, sendToMyTerminal, pasteToMyTerminal, setDemoMode, gradeMission, readProjectFile, cleanWorkspace } from "../lib/runtime.js";
 
 const NativeTerminal = lazy(() => import("../NativeTerminal.jsx"));
 const TtydEmbed = lazy(() => import("./TtydEmbed.jsx"));
@@ -15,6 +15,8 @@ export default function MissionSlide({
 }) {
   const [panelZoom, setPanelZoom] = useState(100); // %
   const [termZoom, setTermZoom] = useState(100); // %
+  // 브리핑(안내) 패널 접기 — 접으면 터미널/VNC 풀폭. 미션 전환 시 기본값(펼침) 유지.
+  const [briefingCollapsed, setBriefingCollapsed] = useState(false);
   // 체험(3.) 페이지는 프롬프트 그대로 노출 / 실습(4.)은 모범답안으로 접힘
   const isExperience = section && section.startsWith("3.");
 
@@ -31,11 +33,11 @@ export default function MissionSlide({
   const [answerOpen, setAnswerOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState(false);
-  // termReady = clearMySession 완료 후에만 Terminal 마운트 → race 없이 깨끗한 화면
-  const [termReady, setTermReady] = useState(isTauri());
-  // termKey: clearMySession 할 때마다 증가 → iframe 강제 재생성 (캐시 bust)
+  // 체험 → 실습 전환 시점에만 세션 리셋. 그 외에는 iframe 유지.
+  const [termReady, setTermReady] = useState(true);
   const [termKey, setTermKey] = useState(0);
   const remountTimerRef = useRef(null);
+  const prevIsExperienceRef = useRef(null);
   const localWriteRef = useRef(null);
   // AI 채점 상태
   const [grading, setGrading] = useState(false);
@@ -73,30 +75,23 @@ export default function MissionSlide({
     prevAllCheckedRef.current = false;
     initialCheckDoneRef.current = false;
     const t = setTimeout(() => setShowEntry(false), 900);
-    // 체험(Part 3)에서만 미션 간 터미널 초기화. 실습(Part 4)은 유지.
+    // 체험 슬라이드 간에는 세션 유지. 체험 → 실습 전환 시 한 번만 리셋.
     if (!isTauri()) {
-      if (remountTimerRef.current) clearTimeout(remountTimerRef.current);
       setDemoMode("normal").catch(() => {});
-
-      if (isExperience) {
-        // 체험: 미션마다 터미널 + 파일 깨끗하게
+      const wasExperience = prevIsExperienceRef.current;
+      if (wasExperience === true && !isExperience) {
+        // 체험 → 실습: 세션 + 파일 초기화 후 iframe 재마운트
         setTermReady(false);
         clearMySession().catch(() => {});
         cleanWorkspace().catch(() => {});
+        if (remountTimerRef.current) clearTimeout(remountTimerRef.current);
         remountTimerRef.current = setTimeout(() => {
           remountTimerRef.current = null;
           setTermKey(k => k + 1);
           setTermReady(true);
         }, 2500);
-      } else {
-        // 실습: 터미널 유지
-        if (!termReady) {
-          setTermReady(true);
-          setTermKey(k => k + 1);
-          // 실습 첫 진입 시 체험 산출물 정리
-          cleanWorkspace().catch(() => {});
-        }
       }
+      prevIsExperienceRef.current = isExperience;
     }
     return () => {
       clearTimeout(t);
@@ -191,32 +186,34 @@ export default function MissionSlide({
     }
   };
 
+  // 브라우저 클립보드 + VNC iframe(들)에 postMessage → noVNC bridge 가
+  // rfb.clipboardPasteFrom(text) + 사이드바 클립보드 텍스트필드 채움.
+  // 사용자는 VNC 안 터미널에서 Ctrl+Shift+V 로 붙여넣기.
+  const pushToVncClipboard = (text) => {
+    if (isTauri()) return;
+    try {
+      document.querySelectorAll("iframe").forEach((f) => {
+        try { f.contentWindow?.postMessage({ type: "vnc-paste", text }, "*"); } catch {}
+      });
+    } catch {}
+  };
+
   const handleCopy = () => {
     copyToClipboard(prompt);
+    pushToVncClipboard(prompt);
     setCopied(true);
     setTimeout(() => setCopied(false), 1500);
   };
 
+  // Tauri 모드 로컬 PTY 실행 — 웹 모드에선 안 씀 (복사 버튼이 모든 걸 처리).
   const handleSend = () => {
     if (!prompt.trim()) return;
     if (isTauri() && localWriteRef.current) {
-      // Tauri 모드: 로컬 PTY에 직접 입력
       localWriteRef.current(prompt + "\r");
       setSent(true);
     } else {
-      // Web 모드: 백엔드 → tmux send-keys 로 사용자 터미널에 직접 입력
-      // (클립보드 우회. Enter는 안 누름 — 사용자가 검토 후 Enter)
-      sendToMyTerminal(prompt).then(() => {
-        setSent(true);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }).catch(() => {
-        // 실패 시 클립보드 폴백
-        copyToClipboard(prompt);
-        setCopied(true);
-        setSent(true);
-        setTimeout(() => setCopied(false), 1500);
-      });
+      handleCopy();
+      setSent(true);
     }
   };
 
@@ -531,13 +528,62 @@ export default function MissionSlide({
       {/* Main: briefing (35%) + terminal (65%) */}
       <div style={{ flex: 1, display: "flex", minHeight: 0 }}>
 
+        {/* 접혔을 때 — 좁은 스트립 + 펼침 버튼 */}
+        {briefingCollapsed && (
+          <button
+            onClick={() => setBriefingCollapsed(false)}
+            title="안내 패널 펼치기"
+            style={{
+              width: 28, flexShrink: 0,
+              borderRight: `1px solid ${M.bd}`,
+              background: `linear-gradient(180deg, ${M.bg3}, ${M.bg2})`,
+              border: "none", borderLeft: 0, borderTop: 0, borderBottom: 0,
+              cursor: "pointer", padding: 0,
+              display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+              gap: 10,
+              color: M.tx2,
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.background = `linear-gradient(180deg, ${M.or}22, ${M.bg3})`; e.currentTarget.style.color = M.or; }}
+            onMouseLeave={(e) => { e.currentTarget.style.background = `linear-gradient(180deg, ${M.bg3}, ${M.bg2})`; e.currentTarget.style.color = M.tx2; }}
+          >
+            <span style={{ fontSize: 16, fontWeight: 900 }}>▶</span>
+            <span style={{ writingMode: "vertical-rl", fontSize: 11, fontWeight: 700, letterSpacing: 2 }}>안내 펼치기</span>
+          </button>
+        )}
+
         {/* Left: briefing */}
         <div style={{
-          width: "35%", minWidth: 280, maxWidth: 420,
-          borderRight: `1px solid ${M.bd}`,
-          display: "flex", flexDirection: "column",
+          width: briefingCollapsed ? 0 : "35%",
+          minWidth: briefingCollapsed ? 0 : 280,
+          maxWidth: briefingCollapsed ? 0 : 420,
+          borderRight: briefingCollapsed ? "none" : `1px solid ${M.bd}`,
+          display: briefingCollapsed ? "none" : "flex", flexDirection: "column",
           overflowY: "auto", background: M.bg,
+          position: "relative",
         }}>
+          {/* 접기 버튼 — 오른쪽 보더에 걸쳐있어 눈에 띔 */}
+          <button
+            onClick={() => setBriefingCollapsed(true)}
+            title="안내 패널 접기 (터미널 풀폭)"
+            style={{
+              position: "absolute", top: 18, right: -14, zIndex: 20,
+              width: 28, height: 52,
+              background: `linear-gradient(135deg, ${M.or}, ${M.orD || "#CB6015"})`,
+              color: "#fff",
+              border: `2px solid ${M.bg2}`,
+              borderRadius: "8px",
+              boxShadow: `0 3px 10px ${M.or}66, 0 0 0 1px ${M.or}33`,
+              cursor: "pointer",
+              fontSize: 14, fontWeight: 900,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              padding: 0, lineHeight: 1,
+              transition: "transform .15s ease-out, box-shadow .15s ease-out",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.transform = "scale(1.1)"; e.currentTarget.style.boxShadow = `0 4px 14px ${M.or}88, 0 0 0 2px ${M.or}44`; }}
+            onMouseLeave={(e) => { e.currentTarget.style.transform = "scale(1)"; e.currentTarget.style.boxShadow = `0 3px 10px ${M.or}66, 0 0 0 1px ${M.or}33`; }}
+          >
+            ◀
+          </button>
           {/* 글씨 크기 조절 바 */}
           <div style={{
             padding: "4px 14px", display: "flex", alignItems: "center", gap: 10,
@@ -652,9 +698,9 @@ export default function MissionSlide({
               </>
             )}
 
-            {isExperience ? (
+            {(isExperience || mission.showPromptDirect) ? (
               <>
-                {/* INPUT — 체험 페이지: 프롬프트 그대로 노출 */}
+                {/* INPUT — 체험 페이지 / showPromptDirect: 프롬프트 그대로 노출 */}
                 <div style={{
                   fontSize: 11, fontWeight: 700, color: M.or, marginBottom: 10,
                   letterSpacing: 2, textTransform: "uppercase",
@@ -686,28 +732,18 @@ export default function MissionSlide({
                     cursor: "pointer", transition: "all .2s ease-out",
                     boxShadow: copied ? "none" : `0 2px 12px ${M.or}44`,
                   }}>
-                    {copied ? "✓ 복사됨 — 터미널에 Ctrl+V 로 붙여넣기" : "📋 복사"}
+                    {copied ? "✓ VNC 클립보드로 전송됨 — 터미널에서 붙여넣기" : "📋 복사 → VNC 클립보드"}
                   </button>
                   {isTauri() && (
                     <button onClick={handleSend} style={{
                       flex: 1,
-                      background: `linear-gradient(135deg, ${M.or}, ${M.orD})`,
-                      color: "#fff", border: "none", borderRadius: 10,
-                      padding: "10px", fontSize: 13, fontWeight: 800,
-                      cursor: "pointer",
-                      boxShadow: `0 2px 12px ${M.or}44`,
-                    }}>▶ 실행</button>
-                  )}
-                  {!isTauri() && (
-                    <button onClick={() => clearMySession().catch(() => {})}
-                      title="터미널 화면 비우기 (스크롤백 포함)"
-                      style={{
-                        background: M.bg2, color: M.tx2,
-                        border: `1px solid ${M.bd}`, borderRadius: 10,
-                        padding: "10px 14px", fontSize: 13, fontWeight: 700,
-                        cursor: "pointer", flexShrink: 0,
-                      }}
-                    >🧹</button>
+                      background: sent ? `${M.bg2}dd` : `linear-gradient(135deg, ${M.or}, ${M.orD})`,
+                      color: sent ? "#86efac" : "#fff",
+                      border: sent ? `1px solid #86efac44` : "none",
+                      borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 800,
+                      cursor: "pointer", transition: "all .2s ease-out",
+                      boxShadow: sent ? "none" : `0 2px 12px ${M.or}44`,
+                    }}>{sent ? "✓ 실행됨" : "▶ 실행"}</button>
                   )}
                 </div>
               </>
@@ -769,8 +805,8 @@ export default function MissionSlide({
               </div>
             )}
 
-            {/* 모범답안 — 힌트 아래, 기본 접힘 (실습 페이지에서만) */}
-            {!isExperience && mission.promptTemplate && (
+            {/* 모범답안 — 힌트 아래, 기본 접힘 (실습 페이지에서만; showPromptDirect는 위에서 이미 노출) */}
+            {!isExperience && !mission.showPromptDirect && mission.promptTemplate && (
               <div style={{ marginTop: 14 }}>
                 <button onClick={() => setAnswerOpen(!answerOpen)} style={{
                   background: "none", border: "none", color: M.tx3,
@@ -819,28 +855,18 @@ export default function MissionSlide({
                         cursor: "pointer", transition: "all .2s ease-out",
                         boxShadow: copied ? "none" : `0 2px 12px ${M.or}44`,
                       }}>
-                        {copied ? "✓ 복사됨 — 터미널에 Ctrl+V 로 붙여넣기" : "📋 복사"}
+                        {copied ? "✓ VNC 클립보드로 전송됨 — 터미널에서 붙여넣기" : "📋 복사 → VNC 클립보드"}
                       </button>
                       {isTauri() && (
                         <button onClick={handleSend} style={{
                           flex: 1,
-                          background: `linear-gradient(135deg, ${M.or}, ${M.orD})`,
-                          color: "#fff", border: "none", borderRadius: 10,
-                          padding: "10px", fontSize: 13, fontWeight: 800,
-                          cursor: "pointer",
-                          boxShadow: `0 2px 12px ${M.or}44`,
-                        }}>▶ 실행</button>
-                      )}
-                      {!isTauri() && (
-                        <button onClick={() => clearMySession().catch(() => {})}
-                          title="터미널 화면 비우기 (스크롤백 포함)"
-                          style={{
-                            background: M.bg2, color: M.tx2,
-                            border: `1px solid ${M.bd}`, borderRadius: 10,
-                            padding: "10px 14px", fontSize: 13, fontWeight: 700,
-                            cursor: "pointer", flexShrink: 0,
-                          }}
-                        >🧹</button>
+                          background: sent ? `${M.bg2}dd` : `linear-gradient(135deg, ${M.or}, ${M.orD})`,
+                          color: sent ? "#86efac" : "#fff",
+                          border: sent ? `1px solid #86efac44` : "none",
+                          borderRadius: 10, padding: "10px", fontSize: 13, fontWeight: 800,
+                          cursor: "pointer", transition: "all .2s ease-out",
+                          boxShadow: sent ? "none" : `0 2px 12px ${M.or}44`,
+                        }}>{sent ? "✓ 실행됨" : "▶ 실행"}</button>
                       )}
                     </div>
                   </div>

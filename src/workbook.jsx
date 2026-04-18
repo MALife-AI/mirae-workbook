@@ -3,6 +3,7 @@ import usePersonalization from "./hooks/usePersonalization.js";
 import useMissionProgress from "./hooks/useMissionProgress.js";
 import DeptTaskInput from "./components/DeptTaskInput.jsx";
 import MissionSlide from "./components/MissionSlide.jsx";
+import MissionProgressTracker from "./components/MissionProgressTracker.jsx";
 import GrowthChart from "./components/GrowthChart.jsx";
 import AdminDashboard from "./components/AdminDashboard.jsx";
 import {
@@ -219,7 +220,7 @@ const SLIDES = [
 
         <div style={{ ...card({ background: M.bg3 }), padding: "10px 16px", textAlign: "center" }}>
           <div style={{ fontSize: 13, color: M.tx3 }}>
-            미션 슬라이드에서는 <strong style={{ color: M.or }}>왼쪽 안내 패널</strong> + <strong style={{ color: M.gd }}>오른쪽 터미널</strong> 로 화면이 나뉩니다. 자세한 건 실습 때 안내.
+            미션 슬라이드에서는 <strong style={{ color: M.or }}>왼쪽 안내 패널</strong> + <strong style={{ color: M.gd }}>오른쪽 VNC 데스크톱</strong> 으로 화면이 나뉩니다. 데스크톱 안에서 xfce 터미널을 열어 <code style={{ background: M.bg3, padding: "1px 4px", borderRadius: 3 }}>claude</code> 를 실행하세요. 자세한 건 실습 때 안내.
           </div>
         </div>
       </div>
@@ -574,55 +575,6 @@ outputs/ 폴더에 저장해줘.`}</Ref>
       </div>
     ),
   },
-  {
-    section: "1. 도입",
-    title: "실제 사례: 보고서 작업",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx }}>실제 사례: <span style={{ color: M.or }}>보고서 작업</span></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 24, width: "100%", alignItems: "center" }}>
-          <div style={{ ...card(), textAlign: "center", borderLeft: `4px solid #fca5a5` }}>
-            <div style={{ fontSize: 14, color: M.tx3, marginBottom: 8 }}>기존 방식</div>
-            <div style={{ fontSize: 72, fontWeight: 900, color: M.bad }}>4시간</div>
-            <div style={{ color: M.tx2, marginTop: 8, fontSize: 15 }}>검색 → 정리 → Word → 서식</div>
-          </div>
-          <div style={{ fontSize: 40, color: M.or, fontWeight: 900 }}>→</div>
-          <div style={{ ...card(), textAlign: "center", borderLeft: `4px solid #86efac` }}>
-            <div style={{ fontSize: 14, color: M.tx3, marginBottom: 8 }}>Claude Code</div>
-            <div style={{ fontSize: 72, fontWeight: 900, color: M.gd }}>10분</div>
-            <div style={{ color: M.tx2, marginTop: 8, fontSize: 15 }}>한 줄 입력 → 완성!</div>
-          </div>
-        </div>
-        <div style={{ fontSize: 18, color: M.tx2 }}>상황: 내일 전략회의를 위한 퇴직연금 시장 자료가 필요</div>
-      </div>
-    ),
-  },
-  {
-    section: "1. 도입",
-    title: "실제 사례: 그 외 업무들",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 34, fontWeight: 900, color: M.tx, textAlign: "center" }}>보고서만이 <span style={{ color: M.or }}>아닙니다</span></div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-          {[
-            { task: "PPT 제작", before: "2일", after: "20분", detail: "\"분기 실적 PPT 8장\" → 자동 생성", icon: "📊" },
-            { task: "시장 조사", before: "반나절", after: "5분", detail: "금감원·보험연구원 자동 수집 + 출처 정리", icon: "🔍" },
-            { task: "경쟁사 분석", before: "3시간", after: "10분", detail: "삼성·한화·교보 비교표 자동 생성", icon: "📈" },
-            { task: "컴플라이언스 점검", before: "2시간", after: "3분", detail: "4대 법규 기준 자동 검토 + 수정안", icon: "📋" },
-          ].map(c => (
-            <div key={c.task} style={{ ...card(), borderLeft: `4px solid ${M.or}` }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 17, fontWeight: 800, color: M.tx }}>{c.icon} {c.task}</span>
-                <span style={{ fontSize: 14, color: M.tx3 }}><span style={{ color: M.bad }}>{c.before}</span> → <span style={{ color: M.gd, fontWeight: 700 }}>{c.after}</span></span>
-              </div>
-              <div style={{ fontSize: 14, color: M.tx2 }}>{c.detail}</div>
-            </div>
-          ))}
-        </div>
-        <div style={{ fontSize: 17, color: M.tx2, textAlign: "center" }}>반복적이고 구조화된 업무라면 <strong style={{ color: M.or }}>거의 모든 것</strong>을 자동화할 수 있습니다</div>
-      </div>
-    ),
-  },
   // ── 와닿는 실제 사례 — 다른 회사들이 얻은 효과 ──
   {
     section: "1. 도입",
@@ -915,7 +867,75 @@ outputs/ 폴더에 저장해줘.`}</Ref>
     ),
   },
 
-  // 터미널 슬라이드
+  // ─── 터미널 개념 설명 (Claude Code 시작의 처음) ───
+  {
+    section: "2. 개념 설명 및 시연",
+    title: "터미널이란 무엇인가",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
+        <div style={{ textAlign: "center" }}>
+          <div style={{ background: M.or + "22", border: `1px solid ${M.or}44`, borderRadius: 8, padding: "5px 18px", fontSize: 13, fontWeight: 700, color: M.or, letterSpacing: 2, display: "inline-block", marginBottom: 10 }}>TERMINAL 101</div>
+          <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, lineHeight: 1.2 }}>터미널이란 <span style={{ color: M.or }}>무엇인가요?</span></div>
+          <div style={{ fontSize: 15, color: M.tx2, marginTop: 8, maxWidth: 700, margin: "8px auto 0", lineHeight: 1.6 }}>
+            <strong style={{ color: M.or }}>마우스 대신 글로 컴퓨터에게 지시하는 창</strong>입니다. 처음엔 낯설지만, AI 코딩에선 가장 효율적인 입력 방식이에요.
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.tx3}` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: M.tx3, marginBottom: 8 }}>익숙한 GUI 방식</div>
+            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.8 }}>
+              📁 폴더 더블클릭<br/>
+              🖱️ 메뉴에서 "다른 이름으로 저장"<br/>
+              ✂️ 드래그로 파일 이동<br/>
+              <span style={{ color: M.tx3 }}>→ 한 번에 한 가지, 손이 많이 감</span>
+            </div>
+          </div>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
+            <div style={{ fontSize: 14, fontWeight: 800, color: M.or, marginBottom: 8 }}>터미널(CLI) 방식</div>
+            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.8, fontFamily: "var(--workbook-mono)" }}>
+              <span style={{ color: M.or }}>cd ~/projects</span><br/>
+              <span style={{ color: M.or }}>ls *.docx</span><br/>
+              <span style={{ color: M.or }}>claude "보고서 만들어줘"</span><br/>
+              <span style={{ color: M.gd, fontFamily: "var(--workbook-font)" }}>→ 한 줄에 한 동작, 자동화 가능</span>
+            </div>
+          </div>
+        </div>
+
+        <div style={{ ...card({ borderLeft: `4px solid ${M.gd}` }), padding: "12px 18px" }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: M.gd, marginBottom: 6 }}>왜 AI 코딩에선 터미널을 쓸까?</div>
+          <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.7 }}>
+            ① <strong style={{ color: M.tx }}>AI가 직접 명령을 실행</strong>할 수 있어요. 사람이 마우스를 잡고 클릭할 필요 없음.<br/>
+            ② <strong style={{ color: M.tx }}>결과가 텍스트</strong>라서 AI가 다음 행동을 정확히 결정할 수 있어요.<br/>
+            ③ <strong style={{ color: M.tx }}>한 번 만들면 재사용</strong> — 같은 명령어를 다음에도, 다른 사람도 그대로 실행.
+          </div>
+        </div>
+
+        <div style={{ fontSize: 13, color: M.tx3, textAlign: "center" }}>
+          오늘은 <code style={{ background: M.bg3, color: M.or, padding: "1px 6px", borderRadius: 4, fontFamily: "var(--workbook-mono)" }}>claude</code> 한 단어만 외워도 충분합니다 — 나머지는 한국어로 대화하세요.
+        </div>
+      </div>
+    ),
+  },
+  {
+    section: "2. 개념 설명 및 시연",
+    title: "터미널 사용법",
+    render: () => (
+      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
+        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx }}>터미널 사용법 — <span style={{ color: M.or }}>딱 2가지만</span></div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
+          {conceptCard("1️⃣", "claude 입력 후 Enter", "Claude Code를 실행합니다. 그러면 AI가 준비 완료!", M.or)}
+          {conceptCard("2️⃣", "한글로 원하는 것 입력", "\"퇴직연금 보고서 만들어줘\" 처럼 자연스럽게 입력하면 됩니다", M.ac)}
+        </div>
+        <div style={{ background: M.bg3, borderRadius: 12, padding: 20, fontFamily: "var(--workbook-mono)", fontSize: 16, lineHeight: 2, width: "100%" }}>
+          <span style={{ color: M.gd }}>$</span> <span style={{ color: M.or }}>claude</span><br/>
+          <span style={{ color: M.tx3 }}>(Claude Code 실행됨)</span><br/>
+          <span style={{ color: M.gd }}>{">"}</span> <span style={{ color: M.tx }}>퇴직연금 보고서 만들어줘</span>
+        </div>
+      </div>
+    ),
+  },
+
   /* 오늘 배울 도구 한눈에 — 삭제 (5가지 핵심 도구 슬라이드와 중복) */
   {
     section: "2. 개념 설명 및 시연",
@@ -978,57 +998,6 @@ outputs/ 폴더에 저장해줘.`}</Ref>
       </div>
     ),
   },
-  // ─── 터미널 개념 설명 (생소한 사용자를 위해) ───
-  {
-    section: "2. 개념 설명 및 시연",
-    title: "터미널이란 무엇인가",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 16, justifyContent: "center", height: "100%" }}>
-        <div style={{ textAlign: "center" }}>
-          <div style={{ background: M.or + "22", border: `1px solid ${M.or}44`, borderRadius: 8, padding: "5px 18px", fontSize: 13, fontWeight: 700, color: M.or, letterSpacing: 2, display: "inline-block", marginBottom: 10 }}>TERMINAL 101</div>
-          <div style={{ fontSize: 32, fontWeight: 900, color: M.tx, lineHeight: 1.2 }}>터미널이란 <span style={{ color: M.or }}>무엇인가요?</span></div>
-          <div style={{ fontSize: 15, color: M.tx2, marginTop: 8, maxWidth: 700, margin: "8px auto 0", lineHeight: 1.6 }}>
-            <strong style={{ color: M.or }}>마우스 대신 글로 컴퓨터에게 지시하는 창</strong>입니다. 처음엔 낯설지만, AI 코딩에선 가장 효율적인 입력 방식이에요.
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-          <div style={{ ...card({ borderLeft: `4px solid ${M.tx3}` }), padding: "14px 18px" }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: M.tx3, marginBottom: 8 }}>익숙한 GUI 방식</div>
-            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.8 }}>
-              📁 폴더 더블클릭<br/>
-              🖱️ 메뉴에서 "다른 이름으로 저장"<br/>
-              ✂️ 드래그로 파일 이동<br/>
-              <span style={{ color: M.tx3 }}>→ 한 번에 한 가지, 손이 많이 감</span>
-            </div>
-          </div>
-          <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
-            <div style={{ fontSize: 14, fontWeight: 800, color: M.or, marginBottom: 8 }}>터미널(CLI) 방식</div>
-            <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.8, fontFamily: "var(--workbook-mono)" }}>
-              <span style={{ color: M.or }}>cd ~/projects</span><br/>
-              <span style={{ color: M.or }}>ls *.docx</span><br/>
-              <span style={{ color: M.or }}>claude "보고서 만들어줘"</span><br/>
-              <span style={{ color: M.gd, fontFamily: "var(--workbook-font)" }}>→ 한 줄에 한 동작, 자동화 가능</span>
-            </div>
-          </div>
-        </div>
-
-        <div style={{ ...card({ borderLeft: `4px solid ${M.gd}` }), padding: "12px 18px" }}>
-          <div style={{ fontSize: 14, fontWeight: 800, color: M.gd, marginBottom: 6 }}>왜 AI 코딩에선 터미널을 쓸까?</div>
-          <div style={{ fontSize: 14, color: M.tx2, lineHeight: 1.7 }}>
-            ① <strong style={{ color: M.tx }}>AI가 직접 명령을 실행</strong>할 수 있어요. 사람이 마우스를 잡고 클릭할 필요 없음.<br/>
-            ② <strong style={{ color: M.tx }}>결과가 텍스트</strong>라서 AI가 다음 행동을 정확히 결정할 수 있어요.<br/>
-            ③ <strong style={{ color: M.tx }}>한 번 만들면 재사용</strong> — 같은 명령어를 다음에도, 다른 사람도 그대로 실행.
-          </div>
-        </div>
-
-        <div style={{ fontSize: 13, color: M.tx3, textAlign: "center" }}>
-          오늘은 <code style={{ background: M.bg3, color: M.or, padding: "1px 6px", borderRadius: 4, fontFamily: "var(--workbook-mono)" }}>claude</code> 한 단어만 외워도 충분합니다 — 나머지는 한국어로 대화하세요.
-        </div>
-      </div>
-    ),
-  },
-  /* Claude Desktop vs CLI — 터미널이란? 바로 위로 이동됨 */
   {
     section: "2. 개념 설명 및 시연",
     title: "오늘 배울 5가지 핵심 도구",
@@ -1183,34 +1152,34 @@ outputs/ 폴더에 저장해줘.`}</Ref>
         <div style={{ textAlign: "center" }}>
           <div style={{ background: M.or + "22", border: `1px solid ${M.or}44`, borderRadius: 8, padding: "5px 18px", fontSize: 13, fontWeight: 700, color: M.or, letterSpacing: 2, display: "inline-block", marginBottom: 8 }}>WHY CLI?</div>
           <div style={{ fontSize: 28, fontWeight: 900, color: M.tx, lineHeight: 1.2 }}>Claude Desktop <span style={{ color: M.blM }}>Code 탭</span> vs <span style={{ color: M.or }}>Claude Code CLI</span></div>
-          <div style={{ fontSize: 14, color: M.tx2, marginTop: 6 }}>둘 다 Claude Code 엔진인데, 왜 터미널(CLI)로 할까?</div>
+          <div style={{ fontSize: 14, color: M.tx2, marginTop: 6 }}>이제 <strong style={{ color: M.gd }}>Desktop 에서도 풀 기능으로 동작</strong>합니다. 그래도 오늘은 CLI 로 하는 이유는?</div>
         </div>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
           <div style={{ ...card({ borderLeft: `4px solid ${M.blM}` }), padding: "14px 18px" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: M.blM, marginBottom: 8 }}>🖥️ Desktop 앱의 Code 탭</div>
             <div style={{ fontSize: 13, color: M.tx2, lineHeight: 1.7 }}>
+              <strong style={{ color: M.tx }}>✓ 이제 풀 기능 지원</strong> — Skill · Command · Hook 모두 사용 가능<br/>
               <strong style={{ color: M.tx }}>✓ GUI 안에서 Claude Code 실행</strong><br/>
               <strong style={{ color: M.tx }}>✓ 채팅 탭과 전환 편리</strong><br/>
               <strong style={{ color: M.tx }}>✓ 파일 미리보기 내장</strong><br/>
-              <span style={{ color: M.bad }}>✗ 터미널 기능 제한적</span> — 복잡한 셸 조합 어려움<br/>
-              <span style={{ color: M.bad }}>✗ 앱 업데이트에 의존</span> — 최신 기능 반영 느림
+              <strong style={{ color: M.tx }}>✓ 같은 Skill/Command 파일 그대로 동작</strong>
             </div>
-            <div style={{ marginTop: 10, fontSize: 12, color: M.tx3, fontStyle: "italic" }}>
-              개인 PC에서 가볍게 쓰기에 적합
+            <div style={{ marginTop: 10, fontSize: 12, color: M.gd, fontStyle: "italic" }}>
+              개인 PC에서 가볍게 쓰기에 최적 — 기능 차이 없음
             </div>
           </div>
           <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
             <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 8 }}>⚡ Claude Code CLI (터미널)</div>
             <div style={{ fontSize: 13, color: M.tx2, lineHeight: 1.7 }}>
-              <strong style={{ color: M.tx }}>✓ 전체 기능 100% 사용</strong> — 최신 버전 즉시 반영<br/>
+              <strong style={{ color: M.tx }}>✓ 설치 없이 브라우저로 바로</strong> — 워크숍 환경에 최적<br/>
               <strong style={{ color: M.tx }}>✓ git · npm · python 파이프라인 연결</strong><br/>
-              <strong style={{ color: M.tx }}>✓ Skill/Command/Hook 완벽 지원</strong><br/>
               <strong style={{ color: M.tx }}>✓ 스크립트로 자동화 가능</strong><br/>
+              <strong style={{ color: M.tx }}>✓ 서버 · SSH 환경에서도 동일하게</strong><br/>
               <strong style={{ color: M.tx }}>✓ 팀 전체가 같은 환경 공유</strong> (git 으로 배포)
             </div>
             <div style={{ marginTop: 10, fontSize: 12, color: M.gd, fontStyle: "italic" }}>
-              업무 자동화 · 팀 협업에 강력
+              업무 자동화 · 팀 협업 · 워크숍 환경에 강력
             </div>
           </div>
         </div>
@@ -1218,15 +1187,15 @@ outputs/ 폴더에 저장해줘.`}</Ref>
         <div style={{ ...card({ borderLeft: `4px solid ${M.gd}` }), padding: "12px 18px" }}>
           <div style={{ fontSize: 14, fontWeight: 800, color: M.gd, marginBottom: 6 }}>오늘 CLI 를 쓰는 이유</div>
           <div style={{ fontSize: 13, color: M.tx2, lineHeight: 1.75 }}>
-            ① <strong style={{ color: M.tx }}>전체 기능</strong> — Skill · Command · Hook 등 핵심 도구를 제한 없이 사용<br/>
-            ② <strong style={{ color: M.tx }}>워크숍 환경</strong> — 브라우저만 열면 바로 시작. Desktop 앱 설치가 필요 없음<br/>
-            ③ <strong style={{ color: M.tx }}>팀 공유</strong> — CLI 에서 만든 Skill/Command 는 git 으로 팀 전체에 배포 가능<br/>
-            ④ <strong style={{ color: M.tx }}>집에서는 Desktop Code 탭도 OK</strong> — 같은 Skill/Command 파일이 그대로 동작합니다
+            ① <strong style={{ color: M.tx }}>설치 불필요</strong> — 브라우저만 열면 바로 시작. Desktop 앱 설치/로그인 단계 생략<br/>
+            ② <strong style={{ color: M.tx }}>자동화 기반</strong> — 셸 · 스크립트 · 파이프라인과 자연스럽게 연결<br/>
+            ③ <strong style={{ color: M.tx }}>팀 공유 · 배포</strong> — CLI 에서 만든 Skill/Command 는 git 으로 팀 전체에 배포 가능<br/>
+            ④ <strong style={{ color: M.tx }}>집에서는 Desktop Code 탭도 OK</strong> — 이제 Desktop 도 같은 풀 기능. 같은 Skill/Command 파일이 그대로 동작
           </div>
         </div>
 
         <div style={{ fontSize: 12, color: M.tx3, textAlign: "center" }}>
-          <strong style={{ color: M.or }}>결론:</strong> Desktop Code 탭이든 CLI 터미널이든 만드는 결과물은 같습니다. 오늘은 CLI 로 익히고, 집에서는 편한 쪽을 쓰세요.
+          <strong style={{ color: M.or }}>결론:</strong> Desktop Code 탭이든 CLI 터미널이든 <strong style={{ color: M.gd }}>기능은 동일</strong>합니다. 오늘은 CLI 로 익히고, 집에서는 편한 쪽을 쓰세요.
         </div>
       </div>
     ),
@@ -1243,111 +1212,63 @@ outputs/ 폴더에 저장해줘.`}</Ref>
           <div style={{ fontSize: 14, color: M.tx2, marginTop: 6 }}>Claude Code vs 바이브 코딩 IDE 비교</div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+          {/* 바이브 코딩 IDE 계열 — Cursor/Windsurf/Antigravity 통합 */}
+          <div style={{ ...card({ borderLeft: `4px solid ${M.ac}` }), padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: M.ac, marginBottom: 2 }}>🧑‍💻 바이브 코딩 IDE</div>
+            <div style={{ fontSize: 11, color: M.tx3, marginTop: -4 }}>Cursor · Windsurf · Antigravity</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: -2 }}>
+              {[
+                { k: "Cursor", d: "VS Code 기반, 업계 표준" },
+                { k: "Windsurf", d: "Flow 모드 — 연속 작업" },
+                { k: "Antigravity", d: "Google DeepMind, GitHub 자동화" },
+              ].map(x => (
+                <span key={x.k} title={x.d} style={{ background: M.ac + "15", border: `1px solid ${M.ac}33`, color: M.ac, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+                  {x.k}
+                </span>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: M.tx2, lineHeight: 1.7 }}>
+              <strong style={{ color: M.gd }}>✓</strong> 코드 에디터 내 AI 자동완성·인라인 수정<br/>
+              <strong style={{ color: M.gd }}>✓</strong> 멀티 파일 동시 편집 · 코드 리팩터링<br/>
+              <strong style={{ color: M.gd }}>✓</strong> 익숙한 GUI — 파일 트리, 탭, 미니맵<br/>
+              <span style={{ color: M.tx3 }}>△ 월 $10~$20 유료 플랜이 대부분</span><br/>
+              <span style={{ color: M.tx3 }}>△ 터미널·자동화 파이프라인 연동 제한적</span><br/>
+              <span style={{ color: M.tx3 }}>△ 비개발자가 쓰기에는 학습 곡선 있음</span>
+            </div>
+            <div style={{ marginTop: "auto", padding: "4px 10px", background: M.ac + "15", borderRadius: 6, fontSize: 11, color: M.ac, fontWeight: 700 }}>
+              개발자 · 코드를 직접 편집하는 업무
+            </div>
+          </div>
+
           {/* Claude Code */}
-          <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 16px" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 6 }}>⚡ Claude Code (CLI / Desktop)</div>
+          <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 16px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 2 }}>⚡ Claude Code</div>
+            <div style={{ fontSize: 11, color: M.tx3, marginTop: -4 }}>CLI · Desktop (터미널 기반 에이전트)</div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: -2 }}>
+              {["Skill", "Command", "Hook", "CLAUDE.md", "MCP"].map(k => (
+                <span key={k} style={{ background: M.or + "15", border: `1px solid ${M.or}33`, color: M.or, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 10 }}>
+                  {k}
+                </span>
+              ))}
+            </div>
             <div style={{ fontSize: 12, color: M.tx2, lineHeight: 1.7 }}>
-              <strong style={{ color: M.gd }}>✓</strong> Skill/Command/Hook 생태계<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 터미널 직접 제어 (git, npm, python)<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 팀 규칙(CLAUDE.md) 공유<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 서버/자동화 파이프라인 연결<br/>
-              <span style={{ color: M.tx3 }}>△ 코드 에디터 별도 필요</span>
+              <strong style={{ color: M.gd }}>✓</strong> 코드 편집을 넘어 <strong style={{ color: M.or }}>업무 전체를 자동화</strong><br/>
+              <strong style={{ color: M.gd }}>✓</strong> Skill/Command/Hook로 업무 절차 재사용<br/>
+              <strong style={{ color: M.gd }}>✓</strong> 터미널/파일/MCP·API 직접 제어<br/>
+              <strong style={{ color: M.gd }}>✓</strong> CLAUDE.md로 팀 규칙·톤·가이드 공유<br/>
+              <span style={{ color: M.tx3 }}>△ 코드 에디터 UI 기능은 없음 (필요 시 별도)</span>
             </div>
-            <div style={{ marginTop: 8, padding: "4px 10px", background: M.or + "15", borderRadius: 6, fontSize: 11, color: M.or, fontWeight: 700 }}>
-              업무 자동화 · 비개발자 · 팀 협업
-            </div>
-          </div>
-
-          {/* Cursor */}
-          <div style={{ ...card({ borderLeft: `4px solid ${M.ac}` }), padding: "14px 16px" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: M.ac, marginBottom: 6 }}>🖱️ Cursor</div>
-            <div style={{ fontSize: 12, color: M.tx2, lineHeight: 1.7 }}>
-              <strong style={{ color: M.gd }}>✓</strong> VS Code 기반 — 익숙한 UI<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 코드 인라인 수정/자동완성<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 멀티 파일 동시 편집<br/>
-              <span style={{ color: M.tx3 }}>△ 월 $20 유료</span><br/>
-              <span style={{ color: M.tx3 }}>△ 터미널 자동화 제한적</span>
-            </div>
-            <div style={{ marginTop: 8, padding: "4px 10px", background: M.ac + "15", borderRadius: 6, fontSize: 11, color: M.ac, fontWeight: 700 }}>
-              개발자 · 코드 편집 중심
-            </div>
-          </div>
-
-          {/* Windsurf */}
-          <div style={{ ...card({ borderLeft: `4px solid ${M.blM}` }), padding: "14px 16px" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: M.blM, marginBottom: 6 }}>🏄 Windsurf</div>
-            <div style={{ fontSize: 12, color: M.tx2, lineHeight: 1.7 }}>
-              <strong style={{ color: M.gd }}>✓</strong> "Flow" 모드 — AI가 연속 작업<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 코드 + 터미널 통합<br/>
-              <strong style={{ color: M.gd }}>✓</strong> 무료 플랜 있음<br/>
-              <span style={{ color: M.tx3 }}>△ Cursor 대비 생태계 작음</span><br/>
-              <span style={{ color: M.tx3 }}>△ 업무 자동화 기능 제한</span>
-            </div>
-            <div style={{ marginTop: 8, padding: "4px 10px", background: M.blM + "15", borderRadius: 6, fontSize: 11, color: M.blM, fontWeight: 700 }}>
-              개발자 · 연속 작업 선호
-            </div>
-          </div>
-
-          {/* Anysphere / Antigravity */}
-          <div style={{ ...card({ borderLeft: `4px solid ${M.wn}` }), padding: "14px 16px" }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: M.wn, marginBottom: 6 }}>🚀 Antigravity (구 Jules)</div>
-            <div style={{ fontSize: 12, color: M.tx2, lineHeight: 1.7 }}>
-              <strong style={{ color: M.gd }}>✓</strong> Google DeepMind 기반<br/>
-              <strong style={{ color: M.gd }}>✓</strong> GitHub 연동 비동기 작업<br/>
-              <strong style={{ color: M.gd }}>✓</strong> PR 자동 생성<br/>
-              <span style={{ color: M.tx3 }}>△ 아직 얼리 액세스</span><br/>
-              <span style={{ color: M.tx3 }}>△ 비개발자용 기능 부족</span>
-            </div>
-            <div style={{ marginTop: 8, padding: "4px 10px", background: M.wn + "15", borderRadius: 6, fontSize: 11, color: M.wn, fontWeight: 700 }}>
-              개발자 · GitHub 중심 워크플로우
+            <div style={{ marginTop: "auto", padding: "4px 10px", background: M.or + "15", borderRadius: 6, fontSize: 11, color: M.or, fontWeight: 700 }}>
+              비개발자·실무자 · 반복 업무 자동화
             </div>
           </div>
         </div>
 
         <div style={{ ...card({ borderLeft: `4px solid ${M.gd}` }), padding: "10px 16px" }}>
           <div style={{ fontSize: 13, color: M.tx2, lineHeight: 1.7 }}>
-            <strong style={{ color: M.gd }}>핵심 차이:</strong> Cursor/Windsurf/Antigravity는 <strong style={{ color: M.tx }}>개발자가 코드를 편집</strong>하는 도구. Claude Code는 <strong style={{ color: M.or }}>비개발자도 업무를 자동화</strong>하는 도구. 목적이 다릅니다.
+            <strong style={{ color: M.gd }}>핵심 차이:</strong> 바이브 코딩 IDE(Cursor·Windsurf·Antigravity)는 <strong style={{ color: M.tx }}>개발자가 코드를 편집</strong>하는 도구. Claude Code는 <strong style={{ color: M.or }}>비개발자도 업무를 자동화</strong>하는 도구. 목적과 타깃이 다릅니다.
           </div>
-        </div>
-      </div>
-    ),
-  },
-  // ── 터미널 소개 ──
-  {
-    section: "2. 개념 설명 및 시연",
-    title: "터미널이란?",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 24, justifyContent: "center", height: "100%" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx, textAlign: "center" }}>터미널이란?</div>
-        <div style={{ ...card(), textAlign: "center", padding: "32px" }}>
-          <div style={{ fontSize: 48 }}>⌨️</div>
-          <div style={{ fontSize: 26, fontWeight: 800, color: M.or, marginTop: 12 }}>글자로 컴퓨터에 명령하는 창</div>
-          <div style={{ fontSize: 18, color: M.tx2, marginTop: 10 }}>카카오톡으로 문자 보내듯이, 터미널로 컴퓨터에 명령을 보냅니다</div>
-        </div>
-        {vsBox(
-          "마우스 방식 (GUI)",
-          ["폴더 클릭", "아이콘 더블클릭", "메뉴에서 선택"],
-          "터미널 방식 (CLI)",
-          ["명령어 입력 → Enter", "결과가 텍스트로 나옴", "Claude Code가 여기서 동작"]
-        )}
-      </div>
-    ),
-  },
-  {
-    section: "2. 개념 설명 및 시연",
-    title: "터미널 사용법",
-    render: () => (
-      <div style={{ display: "flex", flexDirection: "column", gap: 28, justifyContent: "center", height: "100%", alignItems: "center" }}>
-        <div style={{ fontSize: 36, fontWeight: 900, color: M.tx }}>터미널 사용법 — <span style={{ color: M.or }}>딱 2가지만</span></div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
-          {conceptCard("1️⃣", "claude 입력 후 Enter", "Claude Code를 실행합니다. 그러면 AI가 준비 완료!", M.or)}
-          {conceptCard("2️⃣", "한글로 원하는 것 입력", "\"퇴직연금 보고서 만들어줘\" 처럼 자연스럽게 입력하면 됩니다", M.ac)}
-        </div>
-        <div style={{ background: M.bg3, borderRadius: 12, padding: 20, fontFamily: "var(--workbook-mono)", fontSize: 16, lineHeight: 2, width: "100%" }}>
-          <span style={{ color: M.gd }}>$</span> <span style={{ color: M.or }}>claude</span><br/>
-          <span style={{ color: M.tx3 }}>(Claude Code 실행됨)</span><br/>
-          <span style={{ color: M.gd }}>{">"}</span> <span style={{ color: M.tx }}>퇴직연금 보고서 만들어줘</span>
         </div>
       </div>
     ),
@@ -3122,8 +3043,11 @@ outputs/보고서_고객분석.docx
       hints: [step.hint, "아직 터미널에 입력하지 마세요 — 다듬기만"],
       mandatory: [], challenge: [], checklist: [],
       autoChecks: null, manualOnly: true,
+      // 실습 1-5 는 프롬프트 편집만 하는 단계 → MissionSlide 의 VNC/터미널 대신
+      // slide.render() 를 풀폭으로 노출.
+      promptOnly: true,
     },
-    render: () => (
+    render: ({ practicePrompts, updatePrompt }) => (
       <div style={{ display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", height: "100%" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <div style={{ background: step.color, color: "#fff", borderRadius: "50%", width: 40, height: 40, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, fontWeight: 900, flexShrink: 0 }}>{step.icon}</div>
@@ -3170,12 +3094,13 @@ outputs/보고서_고객분석.docx
       promptTemplate: "",
       hints: ["복사 버튼으로 합쳐진 프롬프트를 터미널에 붙여넣으세요", "완료 후 /exit → claude 재시작"],
       mandatory: [], challenge: [], checklist: [],
+      showPromptDirect: true,
       autoChecks: [
         { type: "file-exists", path: "PLAN.md" },
         { type: "file-exists", path: "CLAUDE.md" },
       ],
     },
-    render: () => {
+    render: ({ practicePrompts }) => {
       const combined = `다음을 한번에 만들어줘. 질문하지 말고 바로 실행.\n\n--- 1. Plan ---\n${practicePrompts.plan}\n\n--- 2. CLAUDE.md ---\n${practicePrompts.claudemd}\n\n--- 3. Skill ---\n${practicePrompts.skill}\n\n--- 4. Command ---\n${practicePrompts.command}\n\n--- 5. Hook ---\n${practicePrompts.hook}`;
       return (
         <div style={{ display: "flex", flexDirection: "column", gap: 14, justifyContent: "center", height: "100%" }}>
@@ -3229,7 +3154,9 @@ outputs/보고서_고객분석.docx
       inputDesc: "Claude에게 web/index.html 만들어달라고 요청",
       outputDesc: "web/index.html — 백엔드 없이 단독 동작",
       outputFiles: ["web/index.html"],
-      promptTemplate: `web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작해야 해. 입력 textarea + 실행 버튼 + 결과 표시. JavaScript로 처리. 디자인은 미래에셋 오렌지 #F58220. CSS도 HTML 안에 포함. 최대한 간결하게.`,
+      promptTemplate: `web/index.html 을 만들어줘. 단일 HTML + JavaScript로만 동작 — 서버 없이 파일을 브라우저로 직접 열면 실행돼야 해 (localhost 서버 금지, file:// 로 여는 방식).
+우리 프로젝트에 가장 어울리는 UI를 자유롭게 디자인. 레이아웃·입력 방식·결과 표시 방식 모두 네가 판단해서 만들어줘.
+포인트 컬러는 미래에셋 오렌지 #F58220.`,
       hints: ["백엔드 없이 HTML+JS만으로 동작하는 페이지", "미리보기 버튼으로 바로 확인 가능"],
       mandatory: [], challenge: [], checklist: [],
       autoChecks: [{ type: "file-exists", path: "web/index.html" }],
@@ -3242,13 +3169,13 @@ outputs/보고서_고객분석.docx
         </div>
         <div style={{ ...card({ borderLeft: `4px solid ${M.blM}` }), padding: "14px 18px" }}>
           <div style={{ fontSize: 15, color: M.tx2, lineHeight: 1.7 }}>
-            만든 기능을 <strong style={{ color: M.or }}>단일 HTML 페이지</strong>로 만듭니다. 백엔드 없이 브라우저만으로 동작.
+            만든 기능을 <strong style={{ color: M.or }}>단일 HTML 페이지</strong>로 만듭니다. 서버 없이 <code style={{ background: M.bg3, padding: "1px 6px", borderRadius: 4, color: M.or }}>file://</code> 로 바로 열어 동작 — 디자인·UI는 각자 프로젝트에 맞게 자유롭게.
           </div>
         </div>
         <div style={{ ...card({ borderLeft: `4px solid ${M.or}` }), padding: "14px 18px" }}>
           <div style={{ fontSize: 15, fontWeight: 800, color: M.or, marginBottom: 8 }}>프롬프트</div>
-          <div data-copyable="web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작. 입력 textarea + 실행 버튼 + 결과 표시. JavaScript로 처리. 디자인은 오렌지 #F58220. 최대한 간결하게." title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 13 }}>
-            web/index.html 을 만들어줘. 백엔드 없이 단일 HTML로 완전히 동작. 입력 textarea + 실행 버튼 + 결과 표시. 디자인은 오렌지 #F58220. 최대한 간결하게.
+          <div data-copyable={`web/index.html 을 만들어줘. 단일 HTML + JavaScript로만 동작 — 서버 없이 파일을 브라우저로 직접 열면 실행돼야 해 (localhost 서버 금지, file:// 로 여는 방식).\n우리 프로젝트에 가장 어울리는 UI를 자유롭게 디자인. 레이아웃·입력 방식·결과 표시 방식 모두 네가 판단해서 만들어줘.\n포인트 컬러는 미래에셋 오렌지 #F58220.`} title="클릭하여 복사" style={{ background: M.bg3, borderRadius: 8, padding: "10px 14px", fontFamily: "var(--workbook-mono)", color: M.or, border: `1px solid ${M.bd}`, cursor: "pointer", whiteSpace: "pre-wrap", lineHeight: 1.6, fontSize: 13 }}>
+            {`web/index.html 을 만들어줘. 단일 HTML + JavaScript로만 동작 — 서버 없이 파일을 브라우저로 직접 열면 실행돼야 해 (localhost 서버 금지, file:// 로 여는 방식).\n우리 프로젝트에 가장 어울리는 UI를 자유롭게 디자인. 레이아웃·입력 방식·결과 표시 방식 모두 네가 판단해서 만들어줘.\n포인트 컬러는 미래에셋 오렌지 #F58220.`}
           </div>
         </div>
       </div>
@@ -4644,7 +4571,7 @@ export default function App() {
           {/* 전체화면 슬라이드 콘텐츠 */}
           <div className="fullscreen-slide" style={{ flex: 1, overflow: "auto", padding: "24px 48px", display: "flex", alignItems: "flex-start", justifyContent: "center" }}>
             <div key={page} className="slide-content-scaled slide-enter" style={{ width: "100%", maxWidth: 1200 }}>
-              {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac, interpolate: personalization.interpolate, _GrowthChart: <GrowthChart completedSet={missionProgress.completedMissions} M={M} /> })}
+              {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac, interpolate: personalization.interpolate, practicePrompts, updatePrompt, _GrowthChart: <GrowthChart completedSet={missionProgress.completedMissions} M={M} /> })}
             </div>
           </div>
         </div>
@@ -4843,10 +4770,52 @@ export default function App() {
           </div>
         )}
 
-        {mode === "slide" && isMission && (!slide.mission.hiddenUntil || slide.mission.hiddenUntil.every(id => missionProgress.completedMissions.has(id))) && (
+        {/* 프롬프트 편집만 하는 미션(실습 1-5) — MissionSlide 대신 slide.render() 풀폭 + 하단 완료 바 */}
+        {mode === "slide" && isMission && slide.mission.promptOnly && (!slide.mission.hiddenUntil || slide.mission.hiddenUntil.every(id => missionProgress.completedMissions.has(id))) && (
+          <div style={{ flex: 1, display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div ref={slideContainerRef} style={{ flex: 1, overflow: "auto", padding: "16px 32px", display: "flex", alignItems: "flex-start", justifyContent: "center", minHeight: 0 }}>
+              <div key={page} className="slide-enter" style={{ width: "100%", maxWidth: 900 }}>
+                {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac, interpolate: personalization.interpolate, practicePrompts, updatePrompt, _GrowthChart: <GrowthChart completedSet={missionProgress.completedMissions} M={M} /> })}
+              </div>
+            </div>
+            {/* 하단 완료 바 — 진행을 위한 "다음" 버튼 */}
+            <div style={{ borderTop: `1px solid ${M.bd}`, background: M.bg3, padding: "10px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", flexShrink: 0 }}>
+              <div style={{ fontSize: 13, color: M.tx3 }}>
+                💡 프롬프트를 본인 업무에 맞게 편집한 뒤 다음으로 진행하세요.
+              </div>
+              <button
+                onClick={() => {
+                  missionProgress.completeMission(slide.mission.id);
+                  if (!navLocked && page < TOTAL - 1) setPage(page + 1);
+                }}
+                style={{
+                  background: missionProgress.completedMissions.has(slide.mission.id)
+                    ? `linear-gradient(135deg, ${M.gd}, #059669)`
+                    : `linear-gradient(135deg, ${M.or}, ${M.orD})`,
+                  color: "#fff", border: "none", borderRadius: 8,
+                  padding: "10px 22px", fontSize: 14, fontWeight: 800, cursor: "pointer",
+                  boxShadow: `0 2px 10px ${M.or}44`,
+                }}
+              >
+                {missionProgress.completedMissions.has(slide.mission.id) ? "✓ 완료 · 다음 →" : "완료 · 다음 →"}
+              </button>
+            </div>
+            <MissionProgressTracker
+              missions={allMissions}
+              currentId={slide.mission.id}
+              completedSet={missionProgress.completedMissions}
+              onJump={(idx) => setPage(idx)}
+              M={M}
+            />
+          </div>
+        )}
+
+        {mode === "slide" && isMission && !slide.mission.promptOnly && (!slide.mission.hiddenUntil || slide.mission.hiddenUntil.every(id => missionProgress.completedMissions.has(id))) && (
           /* ═══ 체험 미션 모드: 브리핑(35%) + 터미널(65%) ═══ */
           <MissionSlide
-            mission={slide.mission}
+            mission={slide.mission.id === "final-run"
+              ? { ...slide.mission, promptTemplate: `다음을 한번에 만들어줘. 질문하지 말고 바로 실행.\n\n--- 1. Plan ---\n${practicePrompts.plan}\n\n--- 2. CLAUDE.md ---\n${practicePrompts.claudemd}\n\n--- 3. Skill ---\n${practicePrompts.skill}\n\n--- 4. Command ---\n${practicePrompts.command}\n\n--- 5. Hook ---\n${practicePrompts.hook}` }
+              : slide.mission}
             section={slide.section}
             interpolate={personalization.interpolate}
             onComplete={(id) => missionProgress.completeMission(id)}
@@ -4962,7 +4931,7 @@ export default function App() {
               }}
             >
               <div key={page} ref={slideContentRef} className="slide-content-scaled slide-enter" style={{ width: slideScale < 1 ? `${100 / slideScale}%` : "100%", maxWidth: slideScale < 1 ? 900 / slideScale : 900, transform: `scale(${slideScale})`, transformOrigin: "top center" }}>
-                {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac, interpolate: personalization.interpolate, _GrowthChart: <GrowthChart completedSet={missionProgress.completedMissions} M={M} /> })}
+                {slide.render({ skillTab, setSkillTab, deptTab, setDeptTab, projectPath, setProjectPath, projectNotice, setProjectNotice, tmplStatus, setTmplStatus, codeFontSize, isMac, interpolate: personalization.interpolate, practicePrompts, updatePrompt, _GrowthChart: <GrowthChart completedSet={missionProgress.completedMissions} M={M} /> })}
               </div>
             </div>
 
@@ -4993,7 +4962,7 @@ export default function App() {
                   </div>
                   <Suspense fallback={<div style={{ color: M.tx3, padding: 20, fontFamily: "var(--workbook-mono)", height: "100%" }}>터미널 로딩 중...</div>}>
                     {presenterTermReady ? (
-                      <Terminal key={`presenter-term-${page}-${Date.now()}`} style={{ height: "100%", borderRadius: 0, border: "none" }} fontSize={termFontSize} darkMode={darkMode} onPtyReady={({ write }) => { termWriteRef.current = write; }} />
+                      <Terminal key="presenter-term" style={{ height: "100%", borderRadius: 0, border: "none" }} fontSize={termFontSize} darkMode={darkMode} onPtyReady={({ write }) => { termWriteRef.current = write; }} />
                     ) : (
                       <div style={{ color: M.tx3, padding: 20, fontFamily: "var(--workbook-mono)", height: "100%", display: "flex", alignItems: "center", justifyContent: "center" }}>
                         터미널 초기화 중...
