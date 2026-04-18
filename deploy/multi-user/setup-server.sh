@@ -254,6 +254,7 @@ else
     echo "workbook-api ALL=(${USER_LIST}) NOPASSWD: ${API_DEST}/grade-mission.sh"
     echo "workbook-api ALL=(${USER_LIST}) NOPASSWD: ${API_DEST}/coach.sh"
     echo "workbook-api ALL=(root) NOPASSWD: ${API_DEST}/admin-action.sh"
+    echo "workbook-api ALL=(root) NOPASSWD: /usr/bin/setfacl"
     # admin-action.sh가 자식 sudo로 사용자 tmux를 죽이기 위해 root → userXX 도 허용
     echo "root ALL=(${USER_LIST}) NOPASSWD: /usr/bin/tmux"
     # admin-action.sh claude-usage 가 운영자(lsc)로 claude 실행해야 함 — root → lsc 셸

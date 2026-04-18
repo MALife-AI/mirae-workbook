@@ -27,35 +27,147 @@ echo ""
 echo "[1/6] 데스크톱 패키지 설치..."
 export DEBIAN_FRONTEND=noninteractive
 
-apt-get update -qq
-apt-get install -y -qq \
-  xfce4 xfce4-terminal \
-  tigervnc-standalone-server tigervnc-common \
-  novnc python3-websockify \
-  dbus-x11 x11-xserver-utils x11-utils \
-  fonts-noto-cjk fonts-noto-color-emoji \
+REQUIRED_PKGS=(
+  xfce4 xfce4-terminal
+  tigervnc-standalone-server tigervnc-common
+  novnc python3-websockify
+  dbus-x11 x11-xserver-utils x11-utils xsel xclip
+  fonts-noto-cjk fonts-noto-color-emoji
   locales
+  libreoffice-writer libreoffice-calc libreoffice-impress
+  libreoffice-l10n-ko libreoffice-help-ko
+  ibus ibus-hangul im-config
+)
 
-# 한국어 로케일 생성
+# 누락 패키지만 추려서 설치 (모두 설치되어 있으면 apt 전체를 스킵)
+MISSING_PKGS=()
+for pkg in "${REQUIRED_PKGS[@]}"; do
+  if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q "install ok installed"; then
+    MISSING_PKGS+=("$pkg")
+  fi
+done
+
+# Firefox 상태도 같이 확인 (snap 래퍼가 아니어야 "설치됨"으로 간주)
+FIREFOX_NEEDS_INSTALL=1
+if command -v firefox >/dev/null 2>&1; then
+  if ! readlink -f "$(command -v firefox)" 2>/dev/null | grep -q snap; then
+    FIREFOX_NEEDS_INSTALL=0
+  fi
+fi
+
+if [ ${#MISSING_PKGS[@]} -eq 0 ] && [ "$FIREFOX_NEEDS_INSTALL" = "0" ]; then
+  echo "  + 필수 패키지 모두 설치됨 — apt 단계 건너뜀"
+else
+  if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
+    echo "  누락 패키지 ${#MISSING_PKGS[@]}개 설치: ${MISSING_PKGS[*]}"
+    apt-get update -qq
+    apt-get install -y -qq "${MISSING_PKGS[@]}"
+  fi
+
+  # 불필요한 xfce4 서비스 제거 (경량화) — xfce4 새로 설치한 경우에만
+  if printf '%s\n' "${MISSING_PKGS[@]}" | grep -qx "xfce4"; then
+    apt-get remove -y -qq \
+      xfce4-screensaver xfce4-power-manager xfce4-power-manager-plugins \
+      light-locker xscreensaver \
+      2>/dev/null || true
+  fi
+
+  # ─── Firefox 설치 (Mozilla APT 저장소 — Ubuntu 24.04 snap 우회) ───
+  # Ubuntu 24.04 의 `apt install firefox` 는 snap 전이 패키지라 VNC 안에서 실행이 불안정.
+  # Mozilla 공식 deb 저장소를 추가해 네이티브 .deb 로 설치.
+  if [ "$FIREFOX_NEEDS_INSTALL" = "1" ]; then
+    echo "  Firefox (Mozilla deb) 설치..."
+    apt-get install -y -qq wget gnupg ca-certificates >/dev/null 2>&1 || true
+    install -d -m 0755 /etc/apt/keyrings
+    if [ ! -s /etc/apt/keyrings/packages.mozilla.org.asc ]; then
+      wget -q https://packages.mozilla.org/apt/repo-signing-key.gpg \
+        -O /etc/apt/keyrings/packages.mozilla.org.asc || true
+    fi
+    if [ -s /etc/apt/keyrings/packages.mozilla.org.asc ]; then
+      echo "deb [signed-by=/etc/apt/keyrings/packages.mozilla.org.asc] https://packages.mozilla.org/apt mozilla main" \
+        > /etc/apt/sources.list.d/mozilla.list
+      cat > /etc/apt/preferences.d/mozilla <<'PREF'
+Package: *
+Pin: origin packages.mozilla.org
+Pin-Priority: 1000
+PREF
+      apt-get update -qq
+      # snap 전이 패키지 제거 후 실제 deb 설치
+      apt-get remove -y -qq firefox 2>/dev/null || true
+      apt-get install -y -qq firefox firefox-l10n-ko || \
+        echo "  ! Firefox 설치 실패 — 수동 확인: apt install firefox"
+    else
+      echo "  ! Mozilla 서명 키 다운로드 실패 — Firefox 설치 건너뜀"
+    fi
+  fi
+
+  echo "  + xfce4, tigervnc, noVNC, LibreOffice(한국어), Firefox 설치 완료"
+fi
+
+# 한국어 로케일 생성 (빠른 체크)
 if ! locale -a 2>/dev/null | grep -q "ko_KR.utf8"; then
   echo "  한국어 로케일 생성..."
   locale-gen ko_KR.UTF-8
 fi
 
-# 불필요한 xfce4 서비스 제거 (경량화)
-apt-get remove -y -qq \
-  xfce4-screensaver xfce4-power-manager xfce4-power-manager-plugins \
-  light-locker xscreensaver \
-  2>/dev/null || true
+# ─── xfce4-terminal 붙여넣기 단축키: Ctrl+Shift+V → Ctrl+V ───
+# 시스템 전역 XDG 경로(/etc/xdg/xfce4/terminal/)에 accels.scm 을 두면,
+# 사용자 홈에 ~/.config/xfce4/terminal/accels.scm 이 없을 때 이게 로드됨.
+# reset-all-users.sh 가 홈을 비워도 다음 xfce4-terminal 실행 시 이 기본이 적용된다.
+#
+# 주의: admin-action.sh 의 paste-text 액션이 xdotool 로 키를 주입하는데,
+# 이 파일과 맞춰 ctrl+v 로 변경되어야 한다 (양쪽 동시 수정 필요).
+mkdir -p /etc/xdg/xfce4/terminal
+cat > /etc/xdg/xfce4/terminal/accels.scm <<'ACCELS'
+; xfce4-terminal GtkAccelMap rc-file -*- scheme -*-
+; 미래에셋 워크북 기본: Ctrl+V = paste (원본 Ctrl+Shift+V 대체)
+; 복사는 원본 유지: Ctrl+Shift+C (셸의 Ctrl+C SIGINT 와 분리)
+(gtk_accel_path "<Actions>/terminal-window/paste" "<Primary>v")
+(gtk_accel_path "<Actions>/terminal-window/paste-selection" "")
+ACCELS
+chmod 644 /etc/xdg/xfce4/terminal/accels.scm
 
-echo "  + xfce4, tigervnc, noVNC 설치 완료"
+# ─── Firefox 를 시스템 기본 브라우저로 ───
+# (1) update-alternatives: x-www-browser / gnome-www-browser 가 Firefox 를 가리키도록.
+#     xdg-open 이 desktop 설정이 없을 때 이 쪽을 폴백으로 쓰므로 시스템 전역에 먼저 박음.
+# (2) 기본 MIME: /etc/xdg/mimeapps.list 에 http/https/html 기본값을 firefox.desktop 으로.
+if command -v firefox >/dev/null 2>&1; then
+  FF_BIN="$(command -v firefox)"
+  # x-www-browser / gnome-www-browser 양쪽 갱신
+  update-alternatives --install /usr/bin/x-www-browser x-www-browser "$FF_BIN" 200 >/dev/null 2>&1 || true
+  update-alternatives --install /usr/bin/gnome-www-browser gnome-www-browser "$FF_BIN" 200 >/dev/null 2>&1 || true
+  update-alternatives --set x-www-browser "$FF_BIN" >/dev/null 2>&1 || true
+  update-alternatives --set gnome-www-browser "$FF_BIN" >/dev/null 2>&1 || true
+
+  mkdir -p /etc/xdg
+  cat > /etc/xdg/mimeapps.list <<'MIMELIST'
+[Default Applications]
+text/html=firefox.desktop
+application/xhtml+xml=firefox.desktop
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/https=firefox.desktop
+x-scheme-handler/ftp=firefox.desktop
+x-scheme-handler/chrome=firefox.desktop
+x-scheme-handler/about=firefox.desktop
+x-scheme-handler/unknown=firefox.desktop
+
+[Added Associations]
+text/html=firefox.desktop;
+application/xhtml+xml=firefox.desktop;
+x-scheme-handler/http=firefox.desktop;
+x-scheme-handler/https=firefox.desktop;
+MIMELIST
+  echo "  + Firefox 를 시스템 기본 브라우저로 지정"
+fi
 
 # ─── 2. noVNC 경로 확인 ──────────────────────────
 echo "[2/6] noVNC 경로 확인..."
 
 NOVNC_PATH=""
-for p in /usr/share/novnc /usr/share/noVNC; do
-  if [ -d "$p" ]; then
+# /opt/novnc (수동 설치 최신 버전)를 우선 확인 — apt의 1.3.0은
+# ui.js와 vnc.html 간 clipboard 엘리먼트 불일치로 깨지는 경우가 있음
+for p in /opt/novnc /usr/share/novnc /usr/share/noVNC; do
+  if [ -d "$p" ] && [ -f "$p/vnc.html" ]; then
     NOVNC_PATH="$p"
     break
   fi
@@ -92,7 +204,7 @@ mkdir -p /etc/mirae-workbook
 
 cat > /etc/mirae-workbook/vnc-xstartup <<'XSTARTUP'
 #!/bin/bash
-# Mirae Workbook VNC xstartup — 최소 xfce4 데스크톱
+# Mirae Workbook VNC xstartup — xfce4 + 클립보드 브리지 + 한글 IME
 unset SESSION_MANAGER
 unset DBUS_SESSION_BUS_ADDRESS
 
@@ -101,10 +213,86 @@ export LC_ALL=ko_KR.UTF-8
 export XDG_SESSION_TYPE=x11
 export XDG_CURRENT_DESKTOP=XFCE
 
-# dbus 세션 시작
+# IME(한글) 입력을 위한 환경변수 — ibus-hangul 사용
+export GTK_IM_MODULE=ibus
+export QT_IM_MODULE=ibus
+export XMODIFIERS=@im=ibus
+
+# dbus 세션 시작 (ibus에 필요)
 if command -v dbus-launch >/dev/null 2>&1; then
   eval "$(dbus-launch --sh-syntax)"
   export DBUS_SESSION_BUS_ADDRESS
+fi
+
+# VNC 클립보드 ↔ X11 CLIPBOARD/PRIMARY 양방향 브리지
+# noVNC 사이드바의 Clipboard 패널과 데스크톱 앱 간 복붙이 가능해진다
+#
+# vncconfig 만 쓰면 VNC ↔ PRIMARY 만 동기화되고 GTK 앱들이 쓰는 CLIPBOARD
+# selection 과는 분리된다. autocutsel 이 CLIPBOARD ↔ PRIMARY 를 추가로 동기화해
+# 양쪽 모두 VNC 호스트와 완전히 왕복 가능해진다.
+if command -v vncconfig >/dev/null 2>&1; then
+  vncconfig -nowin &
+fi
+if command -v autocutsel >/dev/null 2>&1; then
+  autocutsel -fork >/dev/null 2>&1 || true
+  autocutsel -selection PRIMARY -fork >/dev/null 2>&1 || true
+fi
+
+# 한/영 키 매핑 — 오른쪽 Alt를 Hangul 키로, 오른쪽 Ctrl을 Hangul_Hanja 키로
+# ibus triggers 에 'Hangul' 이 이미 포함되어 있어 Right Alt 누르면 한↔영 토글
+if command -v setxkbmap >/dev/null 2>&1; then
+  setxkbmap -layout us -option "korean:ralt_hangul,korean:rctrl_hanja" 2>/dev/null || true
+fi
+
+# 마우스 버튼 매핑 기본값(1=좌, 2=중, 3=우) 보장.
+# 일부 노트북 드라이버/xkb option 이 엉켜 좌클릭이 사라지는 사례가 있어 방어적으로 리셋.
+if command -v xmodmap >/dev/null 2>&1; then
+  xmodmap -e "pointer = 1 2 3" 2>/dev/null || true
+fi
+
+# xfce4 "싱글 클릭" 모드 OFF — 데스크톱/파일매니저(thunar) 양쪽.
+# 싱글클릭 모드에선 한 번 누르면 "선택만" 되고 "실행 안 됨"으로 보여 좌클릭이 먹지 않는
+# 것처럼 오해됨. 특히 노VNC 첫 클릭이 canvas focus 에 소모되고 두 번째 클릭이 오기 전에
+# hover 해제되면 시각 피드백이 없어 혼선이 큼.
+if command -v xfconf-query >/dev/null 2>&1; then
+  (sleep 3
+   xfconf-query -c xfce4-desktop -p /desktop-icons/single-click -n -t bool -s false 2>/dev/null || true
+   xfconf-query -c thunar -p /misc-single-click -n -t bool -s false 2>/dev/null || true
+  ) &
+fi
+
+# 한글 IME 데몬 기동 — 한영키는 Shift+Space, Ctrl+Space, Ctrl+Hangul, Hangul(Right Alt)
+# noVNC 는 브라우저 OS 별로 Right Alt 키심 전달이 불안정하므로 Shift+Space / Ctrl+Space 를
+# 추가 트리거로 두고, 한국어 키보드 사용자는 Ctrl+한/영(=Ctrl+Hangul)도 쓸 수 있게.
+#
+# 설계: hangul 엔진 "하나만" preload + 전역 triggers 비움 + switch-keys 로만 토글.
+#
+#   ibus 는 두 층에서 키를 먹는다.
+#     (A) org.freedesktop.ibus.general.hotkey.triggers
+#         — 엔진 자체를 교체 (예: xkb:us::eng ↔ hangul).
+#     (B) org.freedesktop.ibus.engine.hangul switch-keys
+#         — 이미 hangul 엔진 안에서 "직접입력(영문) ↔ 한글조합" 모드 토글.
+#
+#   두 개 다 등록하면 (A) 가 먼저 소비돼서 엔진이 통째로 바뀐다. 엔진 내부
+#   토글까지 내려올 기회가 없어 "한영키 누르면 ibus 전체가 바뀌는" 증상이 남.
+#   그래서 preload 에 hangul 하나만 두고, (A) 는 비우고, (B) 만 활성화한다.
+#   ibus-hangul 의 직접입력 모드가 영문 입력 그대로라 영어 타이핑에도 문제 없음.
+#
+# 주의: 키 이름은 `switch-keys` 이다. 과거 `hangul-keys` 로 썼다가 스키마에 없는 키라
+# gsettings 가 조용히 실패(|| true 로 에러 삼킴)하고 기본값 'Hangul,Shift+space' 만
+# 남는 버그가 있었다 — ibus-setup GUI 의 "Hangul Toggle Key" 에 Ctrl+space / Ctrl+Hangul
+# 이 안 보이면 이 스키마 키 이름부터 확인.
+#
+# 순서도 중요: gsettings 를 먼저 동기로 끝낸 뒤 ibus-daemon 을 띄워야 새 값이 로드된다.
+# 이전에 gsettings 를 백그라운드로 돌리고 ibus-daemon 을 병렬 기동했더니,
+# Ctrl+Hangul 같이 뒤에 추가한 항목이 데몬에 반영되지 않는 레이스가 있었음.
+if command -v ibus-daemon >/dev/null 2>&1; then
+  gsettings set org.freedesktop.ibus.general preload-engines "['hangul']" 2>/dev/null || true
+  gsettings set org.freedesktop.ibus.general.hotkey triggers "@as []" 2>/dev/null || true
+  gsettings set org.freedesktop.ibus.engine.hangul switch-keys 'Hangul,Shift+space,Control+space,Control+Hangul' 2>/dev/null || true
+  sync
+  ibus-daemon -drx >/dev/null 2>&1 &
+  (sleep 2 && ibus engine hangul) >/dev/null 2>&1 &
 fi
 
 # xfce4 세션 시작
@@ -182,6 +370,50 @@ AUTOSTART
   done
   chown -R "${USERNAME}:${USERNAME}" "${USER_HOME}/.config"
 
+  # ─── Firefox 바탕화면 바로가기 + 기본 브라우저 지정 ───
+  # xfce4 데스크톱에서 바로 실행 가능하도록 ~/Desktop/firefox.desktop 배치.
+  # 실행 권한 (+x) 을 주면 xfdesktop 이 "실행 여부" 다이얼로그 없이 바로 띄움.
+  # 또한 ~/.config/mimeapps.list 에 http/https 기본 핸들러를 firefox.desktop 으로 박아
+  # xdg-open / 앱에서 링크 클릭 → 파이어폭스 로 뜨도록 보장.
+  if command -v firefox >/dev/null 2>&1; then
+    mkdir -p "${USER_HOME}/Desktop"
+    cat > "${USER_HOME}/Desktop/firefox.desktop" <<'FFDESKTOP'
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=인터넷 (Firefox)
+Name[en]=Firefox Web Browser
+Comment=웹 브라우저로 인터넷 접속
+Exec=firefox %u
+Icon=firefox
+Terminal=false
+Categories=Network;WebBrowser;
+StartupNotify=true
+FFDESKTOP
+    chmod +x "${USER_HOME}/Desktop/firefox.desktop"
+
+    mkdir -p "${USER_HOME}/.config"
+    cat > "${USER_HOME}/.config/mimeapps.list" <<'MIMEUSER'
+[Default Applications]
+text/html=firefox.desktop
+application/xhtml+xml=firefox.desktop
+x-scheme-handler/http=firefox.desktop
+x-scheme-handler/https=firefox.desktop
+x-scheme-handler/ftp=firefox.desktop
+x-scheme-handler/chrome=firefox.desktop
+x-scheme-handler/about=firefox.desktop
+x-scheme-handler/unknown=firefox.desktop
+
+[Added Associations]
+text/html=firefox.desktop;
+application/xhtml+xml=firefox.desktop;
+x-scheme-handler/http=firefox.desktop;
+x-scheme-handler/https=firefox.desktop;
+MIMEUSER
+
+    chown -R "${USERNAME}:${USERNAME}" "${USER_HOME}/Desktop" "${USER_HOME}/.config/mimeapps.list"
+  fi
+
   # ─── VNC 서버 systemd 서비스 ───
   # Xtigervnc 직접 실행 (Type=simple) — vncserver 래퍼의 -fg 호환성 문제 우회
   # 각 유저의 xstartup을 별도 스크립트로 실행
@@ -209,7 +441,8 @@ ExecStart=${XTIGERVNC_BIN} :${VNC_DISPLAY} \\
   -localhost \\
   -SecurityTypes VncAuth \\
   -pn \\
-  -AlwaysShared
+  -AlwaysShared \\
+  -RemapKeys=0xffea-\\>0xff31,0xffe4-\\>0xff34
 
 ExecStop=-/bin/sh -c 'kill \$MAINPID 2>/dev/null; rm -f /tmp/.X${VNC_DISPLAY}-lock /tmp/.X11-unix/X${VNC_DISPLAY}'
 
@@ -248,11 +481,15 @@ WantedBy=multi-user.target
 EOF
 
   # ─── noVNC websockify systemd 서비스 ───
+  # Requires+PartOf 조합: vnc 서버가 꺼지면 novnc도 같이 꺼지고(PartOf),
+  # vnc 서버가 restart 되면 novnc 도 같이 restart 된다. BindsTo 만 쓰면
+  # 단방향이라 vnc 재기동 후 novnc 가 되살아나지 않아 "검은 화면" 증상 발생.
   cat > "/etc/systemd/system/novnc-${USERNAME}.service" <<EOF
 [Unit]
 Description=noVNC WebSocket proxy for ${USERNAME}
 After=vnc-${USERNAME}.service
-BindsTo=vnc-${USERNAME}.service
+Requires=vnc-${USERNAME}.service
+PartOf=vnc-${USERNAME}.service
 
 [Service]
 Type=simple
@@ -388,6 +625,11 @@ DESKTOP_BLOCK='
         proxy_set_header X-Real-IP  $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+
+        # noVNC 자산 캐시 방지 — 버전 업그레이드 시 구 ui.js/vnc.html 캐시 충돌 방지
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        expires -1;
     }
     # ─── END VNC DESKTOP ───
 '

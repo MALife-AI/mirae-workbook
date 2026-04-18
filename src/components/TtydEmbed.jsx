@@ -8,7 +8,7 @@
 // ttyd는 nginx에서 /<username>/ 경로로 라우팅됨 (setup-ttyd.sh 참조).
 
 import { useEffect, useRef, useState } from "react";
-import { getCurrentUser, fetchMyTarget, clearMySession } from "../lib/runtime.js";
+import { getCurrentUser, fetchMyTarget } from "../lib/runtime.js";
 
 export default function TtydEmbed({ style, darkMode = true, bustKey = 0 }) {
   const [username, setUsername] = useState(null);
@@ -138,27 +138,35 @@ export default function TtydEmbed({ style, darkMode = true, bustKey = 0 }) {
   // ttyd는 nginx에서 /<username>/ 경로로 리버스 프록시됨 (setup-ttyd.sh).
   // 같은 origin이라 X-Frame-Options: SAMEORIGIN 이면 임베드 가능.
   // mountTs: 컴포넌트가 새로 마운트될 때마다 고유값 → 브라우저가 절대 캐시 재사용 안 함
-  const src = `/${username}/?_t=${mountTs}`;
+  // resize=remote: VNC 서버가 iframe 크기에 맞춰 해상도 동적 조정 (축소 대신 실제 크기 변경)
+  const src = `/${username}/desktop/vnc.html?autoconnect=1&resize=remote&reconnect=1&path=${username}/desktop/websockify&_t=${mountTs}`;
+  const fullscreenUrl = `/${username}/desktop/`;
+
+  const btnBase = {
+    position: "absolute", zIndex: 10,
+    background: "rgba(30,30,30,0.85)", color: "#9ca3af",
+    border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
+    padding: "3px 8px", fontSize: 11, fontWeight: 600,
+    cursor: "pointer", backdropFilter: "blur(4px)",
+    transition: "color .2s, border-color .2s",
+    lineHeight: 1.4, textDecoration: "none", display: "inline-block",
+  };
+  const btnHoverOn = e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.4)"; };
+  const btnHoverOff = e => { e.currentTarget.style.color = "#9ca3af"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; };
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
-      <button
-        onClick={() => clearMySession().catch(() => {})}
-        title="터미널 초기화 (화면 비우기)"
-        style={{
-          position: "absolute", top: 6, right: 8, zIndex: 10,
-          background: "rgba(30,30,30,0.85)", color: "#9ca3af",
-          border: "1px solid rgba(255,255,255,0.1)", borderRadius: 6,
-          padding: "3px 8px", fontSize: 11, fontWeight: 600,
-          cursor: "pointer", backdropFilter: "blur(4px)",
-          transition: "color .2s, border-color .2s",
-          lineHeight: 1.4,
-        }}
-        onMouseEnter={e => { e.currentTarget.style.color = "#f59e0b"; e.currentTarget.style.borderColor = "rgba(245,158,11,0.4)"; }}
-        onMouseLeave={e => { e.currentTarget.style.color = "#9ca3af"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+      <a
+        href={fullscreenUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        title="새 탭에서 크게 보기"
+        style={{ ...btnBase, top: 6, right: 8 }}
+        onMouseEnter={btnHoverOn}
+        onMouseLeave={btnHoverOff}
       >
-        🔄 초기화
-      </button>
+        ⛶ 크게 보기
+      </a>
       <iframe
         ref={iframeRef}
         key={`ttyd-${username}-${mountTs}`}

@@ -98,13 +98,13 @@ for i in $(seq -w 0 "$USER_COUNT"; echo 99); do
   '
 
   # 3) ~/.claude/settings.json — Sonnet 4.6 + 사전 권한
-  # 기본 출력 토큰 = 8192 (체험용). 실습 페이지에선 `claude-long` 으로 32K 사용.
+  # 기본 출력 토큰 = 32768 (모든 슬라이드·실습에서 풀 길이 허용)
   TARGET_SETTINGS="${TARGET_DIR}/settings.json"
   cat > "$TARGET_SETTINGS" <<'SETTINGS'
 {
   "model": "claude-sonnet-4-6",
   "env": {
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32768",
     "MAX_THINKING_TOKENS": "0",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
   },
