@@ -20,7 +20,7 @@
 import express from "express";
 import fs from "node:fs";
 import path from "node:path";
-import { spawn } from "node:child_process";
+import { spawn, execSync } from "node:child_process";
 
 const app = express();
 // /api/file 본문(파일 내용)이 클 수 있어 1MB 까지 허용
@@ -902,12 +902,42 @@ function readSlotStatus(slot) {
   const dir = path.join(KEYS_DIR, slot);
   const credPath = path.join(dir, "credentials.json");
   const cfgPath = path.join(dir, "claude.json");
-  const out = { slot, hasCredentials: false, hasClaudeJson: false, mtime: null, hasOAuth: false };
+  const out = {
+    slot, hasCredentials: false, hasClaudeJson: false, mtime: null, hasOAuth: false,
+    // OAuth 토큰 만료 정보 — 운영자 로그인이 풀렸는지 UI에서 경고하기 위함.
+    expiresAt: null, expired: null, daysLeft: null, authStatus: "unknown",
+  };
   try {
     if (fs.existsSync(credPath)) {
       const stat = fs.statSync(credPath);
       out.hasCredentials = stat.size > 50;
       out.mtime = stat.mtimeMs;
+      // credentials.json 구조 (Claude Code): { claudeAiOauth: { expiresAt, accessToken, refreshToken, ... } }
+      // expiresAt 는 epoch ms. 다른 필드명 폴백도 시도.
+      try {
+        const cred = JSON.parse(fs.readFileSync(credPath, "utf8"));
+        const oauth = cred.claudeAiOauth || cred.oauth || cred;
+        const exp = oauth.expiresAt || oauth.expires_at || oauth.expiresIn || null;
+        if (typeof exp === "number" && exp > 0) {
+          // 초 단위로 들어오는 경우 감지 (10자리 = 초, 13자리 = ms)
+          const expMs = exp < 10_000_000_000 ? exp * 1000 : exp;
+          const now = Date.now();
+          out.expiresAt = expMs;
+          out.expired = expMs < now;
+          out.daysLeft = Math.floor((expMs - now) / 86400_000);
+          if (out.expired) out.authStatus = "expired";
+          else if (out.daysLeft <= 1) out.authStatus = "expiring";
+          else out.authStatus = "ok";
+        } else {
+          // 만료 정보 없으면 리프레시 토큰 유무로만 판단 — 살아 있다고 가정
+          const hasRefresh = !!(oauth.refreshToken || oauth.refresh_token);
+          out.authStatus = hasRefresh ? "ok" : "unknown";
+        }
+      } catch {
+        out.authStatus = "invalid";
+      }
+    } else {
+      out.authStatus = "missing";
     }
   } catch {}
   try {
@@ -1099,14 +1129,118 @@ app.post("/api/admin/save-key", (req, res) => {
   }
 });
 
+// 운영자(user00) 의 Claude 로그인 크리덴셜 상태 — 만료 여부 포함.
+// user00 VNC 에서 `claude /login` 한 결과가 /home/user00/.claude/.credentials.json 에 저장됨.
+// 이 경로가 "진짜 마스터 키" — 다른 사용자에게는 여기서 복사.
+function ensureOperatorCredReadable(credPath) {
+  try {
+    fs.accessSync(credPath, fs.constants.R_OK);
+  } catch {
+    try {
+      execSync(
+        `sudo /usr/bin/setfacl -m g:workbook-readers:r,mask::r "${credPath}"`,
+        { timeout: 3000 },
+      );
+    } catch {}
+  }
+}
+
+function readOperatorAuthStatus() {
+  const credPath = "/home/user00/.claude/.credentials.json";
+  const out = {
+    user: "user00",
+    hasCredentials: false,
+    mtime: null,
+    expiresAt: null, expired: null, daysLeft: null,
+    authStatus: "missing",
+  };
+  try {
+    if (!fs.existsSync(credPath)) return out;
+    ensureOperatorCredReadable(credPath);
+    const stat = fs.statSync(credPath);
+    out.hasCredentials = stat.size > 50;
+    out.mtime = stat.mtimeMs;
+    const cred = JSON.parse(fs.readFileSync(credPath, "utf8"));
+    const oauth = cred.claudeAiOauth || cred.oauth || cred;
+    const exp = oauth.expiresAt || oauth.expires_at || null;
+    if (typeof exp === "number" && exp > 0) {
+      const expMs = exp < 10_000_000_000 ? exp * 1000 : exp;
+      const now = Date.now();
+      out.expiresAt = expMs;
+      out.expired = expMs < now;
+      out.daysLeft = Math.floor((expMs - now) / 86400_000);
+      if (out.expired) out.authStatus = "expired";
+      else if (out.daysLeft <= 1) out.authStatus = "expiring";
+      else out.authStatus = "ok";
+    } else {
+      const hasRefresh = !!(oauth.refreshToken || oauth.refresh_token);
+      out.authStatus = hasRefresh ? "ok" : "unknown";
+    }
+  } catch (e) {
+    out.authStatus = "invalid";
+    out.error = String(e.message || e);
+  }
+  return out;
+}
+
+app.get("/api/admin/operator-auth-status", async (req, res) => {
+  const user = getUser(req);
+  if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
+  res.json(readOperatorAuthStatus());
+});
+
+// user00 크리덴셜을 user01..userNN 에 복사 (만료 시 운영자가 user00 VNC 에서 /login 후 이 버튼 클릭).
+app.post("/api/admin/refresh-from-operator", async (req, res) => {
+  const user = getUser(req);
+  if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
+  const status = readOperatorAuthStatus();
+  if (status.authStatus === "expired" || status.authStatus === "missing" || status.authStatus === "invalid") {
+    return res.status(400).json({
+      ok: false,
+      error: `user00 크리덴셜 상태: ${status.authStatus}. user00 VNC 에서 'claude /login' 먼저 실행하세요.`,
+    });
+  }
+  const target = req.body?.username;
+  let arg;
+  if (target) {
+    if (!USER_RE.test(target)) return res.status(400).json({ error: "bad username" });
+    arg = target;
+  } else {
+    arg = String(Number(req.body?.userCount) || 20);
+  }
+  const r = await runAdminAction(["refresh-from-operator", arg]);
+  if (r.code === 0) {
+    if (target) {
+      bumpSessionVersion(target);
+    } else {
+      for (const u of knownUsers()) {
+        if (!isAdmin(u) && u !== "user00") bumpSessionVersion(u);
+      }
+    }
+  }
+  if (r.code === 0 && r.parsed) return res.json(r.parsed);
+  res.status(500).json({ ok: false, code: r.code, error: r.stderr.trim() || "action failed" });
+});
+
 app.post("/api/admin/refresh-credentials", async (req, res) => {
   const user = getUser(req);
   if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
-  const userCount = Number(req.body?.userCount) || 20;
-  const r = await runAdminAction(["refresh-creds", String(userCount)]);
+  const target = req.body?.username;
+  let arg;
+  if (target) {
+    if (!USER_RE.test(target)) return res.status(400).json({ error: "bad username" });
+    arg = target;
+  } else {
+    arg = String(Number(req.body?.userCount) || 20);
+  }
+  const r = await runAdminAction(["refresh-creds", arg]);
   if (r.code === 0) {
-    for (const u of knownUsers()) {
-      if (!isAdmin(u)) bumpSessionVersion(u);
+    if (target) {
+      bumpSessionVersion(target);
+    } else {
+      for (const u of knownUsers()) {
+        if (!isAdmin(u)) bumpSessionVersion(u);
+      }
     }
   }
   if (r.code === 0 && r.parsed) return res.json(r.parsed);
@@ -1125,6 +1259,48 @@ app.post("/api/admin/force-relogin", async (req, res) => {
     try { res.json(JSON.parse(stdout)); } catch { res.json({ ok: true }); }
   });
   child.on("error", (e) => res.status(500).json({ error: "spawn failed: " + e.message }));
+});
+
+// VNC 상태 조회 — admin-action.sh vnc-status가 각 novnc-userXX 서비스의
+// active/listening 여부를 수집한 JSON을 반환.
+app.get("/api/admin/vnc-status", async (req, res) => {
+  const user = getUser(req);
+  if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
+  const r = await runAdminAction(["vnc-status"]);
+  if (r.code === 0 && r.parsed) return res.json(r.parsed);
+  res.status(500).json({ ok: false, code: r.code, error: r.stderr.trim().slice(0, 500) || "vnc-status failed" });
+});
+
+// VNC 복구 — 죽은 novnc-userXX만 재기동 + enable. 원인은 여러 번 관찰됨
+// (재부팅 후 enable 누락, 또는 disable 상태로 떠남). 누르면 전체 스윕.
+app.post("/api/admin/vnc-recover", async (req, res) => {
+  const user = getUser(req);
+  if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
+  const r = await runAdminAction(["vnc-recover"]);
+  if (r.code === 0 && r.parsed) return res.json(r.parsed);
+  res.status(500).json({ ok: false, code: r.code, error: r.stderr.trim().slice(0, 500) || "vnc-recover failed" });
+});
+
+// 모든 사용자 VNC 체인 일괄 재기동 — "전체 재시작" 흐름에서 사용.
+// xstartup 이 재실행되며 ibus-hangul / Korean IME 설정이 다시 적용된다.
+app.post("/api/admin/vnc-restart-all", async (req, res) => {
+  const user = getUser(req);
+  if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
+  const r = await runAdminAction(["vnc-restart-all"]);
+  if (r.code === 0 && r.parsed) return res.json(r.parsed);
+  res.status(500).json({ ok: false, code: r.code, error: r.stderr.trim().slice(0, 500) || "vnc-restart-all failed" });
+});
+
+// 단일 사용자의 VNC 체인(vnc → vnc-xfce → novnc) 전체 재기동.
+// 데스크톱이 멎거나 한 명만 표시가 깨졌을 때 admin 이 바로 누르는 용도.
+app.post("/api/admin/vnc-reset-user", async (req, res) => {
+  const user = getUser(req);
+  if (!isAdmin(user)) return res.status(403).json({ error: "admin only" });
+  const target = req.body?.username;
+  if (!target || !USER_RE.test(target)) return res.status(400).json({ error: "bad username" });
+  const r = await runAdminAction(["vnc-reset-user", target]);
+  if (r.code === 0 && r.parsed) return res.json(r.parsed);
+  res.status(500).json({ ok: false, code: r.code, error: r.stderr.trim().slice(0, 500) || "vnc-reset-user failed" });
 });
 
 app.post("/api/admin/clean-home", async (req, res) => {
@@ -1313,6 +1489,36 @@ app.post("/api/clean-workspace", (req, res) => {
     res.status(500).json({ ok: false, error: stderr.trim() || "clean failed" });
   });
   child.on("error", (e) => res.status(500).json({ ok: false, error: String(e) }));
+});
+
+// 사용자가 본인 VNC 터미널에 텍스트 자동 붙여넣기 (xclip CLIPBOARD + Ctrl+Shift+V).
+// send-to-my-terminal 은 한 글자씩 type — 긴 프롬프트는 수초 걸림.
+// 이건 clipboard 기반이라 즉시 삽입.
+app.post("/api/paste-to-my-terminal", (req, res) => {
+  const user = getUser(req);
+  if (!user) return res.status(401).json({ error: "no user" });
+  if (isAdmin(user)) return res.json({ ignored: "admin" });
+  const text = String(req.body?.text || "");
+  if (!text) return res.status(400).json({ error: "no text" });
+  if (text.length > 256 * 1024) return res.status(413).json({ error: "text too large" });
+
+  const child = spawn("sudo", ["-n", ADMIN_ACTION_PATH, "paste-text", user], {
+    stdio: ["pipe", "pipe", "pipe"],
+  });
+  let stdout = "";
+  let stderr = "";
+  child.stdout.on("data", (d) => { stdout += d.toString(); });
+  child.stderr.on("data", (d) => { stderr += d.toString(); });
+  child.on("close", (code) => {
+    if (code === 0) {
+      try { return res.json(JSON.parse(stdout.trim().split("\n").pop() || "{}")); }
+      catch { return res.json({ ok: true }); }
+    }
+    res.status(500).json({ ok: false, error: stderr.trim() || "paste failed" });
+  });
+  child.on("error", (e) => res.status(500).json({ ok: false, error: String(e) }));
+  child.stdin.write(text);
+  child.stdin.end();
 });
 
 // 사용자가 본인 tmux 세션에 텍스트 직접 입력 (Enter 안 누름 → 검토 후 직접)

@@ -12,20 +12,22 @@ import {
   adminTargetAll,
   adminRefreshCredentials,
   adminForceRelogin,
-  adminCleanHome,
   adminCleanAllHomes,
-  adminResetSessions,
   adminSetLockMode,
   adminLockUser,
   adminResetAll,
   adminResetUser,
   adminDisableUser,
-  adminKeyStatus,
-  adminSaveKey,
+  adminOperatorAuthStatus,
+  adminRefreshFromOperator,
   adminUsage,
   adminUsageRefresh,
   adminClaudeUsage,
   adminClaudeUsageRefresh,
+  adminVncStatus,
+  adminVncRecover,
+  adminVncResetUser,
+  adminVncRestartAll,
 } from "../lib/runtime.js";
 
 const POLL_INTERVAL_MS = 5000;
@@ -57,22 +59,28 @@ export default function AdminDashboard({ M }) {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const isMobile = useIsMobile();
 
-  // 마스터 키 슬롯 상태
-  const [keyStatus, setKeyStatus] = useState({ slots: [] });
-  const [keyModalOpen, setKeyModalOpen] = useState(false);
-  const [keyModalSlot, setKeyModalSlot] = useState("a");
-  const [keyModalCred, setKeyModalCred] = useState("");
-  const [keyModalCfg, setKeyModalCfg] = useState("");
-  const [keyModalBusy, setKeyModalBusy] = useState(false);
-  const [keyModalMsg, setKeyModalMsg] = useState("");
-
-  async function loadKeyStatus() {
-    try {
-      const r = await adminKeyStatus();
-      setKeyStatus(r);
-    } catch {}
+  // 운영자(user00) Claude 로그인 상태 — 만료되면 user00 VNC 에서 재로그인 필요.
+  const [opAuth, setOpAuth] = useState(null);
+  async function loadOpAuth() {
+    try { setOpAuth(await adminOperatorAuthStatus()); } catch {}
   }
-  useEffect(() => { loadKeyStatus(); }, []);
+  useEffect(() => {
+    loadOpAuth();
+    const id = setInterval(loadOpAuth, 60_000); // 1분마다 재확인
+    return () => clearInterval(id);
+  }, []);
+  const [opAuthGuideOpen, setOpAuthGuideOpen] = useState(false);
+
+  async function refreshFromOp() {
+    if (!confirm("user00 의 Claude 로그인 크리덴셜을 user01~ 에게 복사합니다. 진행할까요?")) return;
+    setBusy("refresh-op"); setActionMsg("");
+    try {
+      const r = await adminRefreshFromOperator();
+      setActionMsg(`✓ user00 → 전체 복사 완료 (${r.copied}명, 스킵 ${r.skipped})`);
+    } catch (e) {
+      setActionMsg(`✗ 실패: ${e.message || e}`);
+    } finally { setBusy(""); }
+  }
 
   // Anthropic 토큰 사용량
   const [usage, setUsage] = useState(null);
@@ -96,32 +104,6 @@ export default function AdminDashboard({ M }) {
     finally { setClaudeUsageBusy(false); }
   }
   useEffect(() => { adminClaudeUsage().then(setClaudeUsage).catch(() => {}); }, []);
-
-  async function handleSaveKey() {
-    setKeyModalBusy(true);
-    setKeyModalMsg("");
-    try {
-      const r = await adminSaveKey(keyModalSlot, keyModalCred.trim(), keyModalCfg.trim() || undefined);
-      setKeyModalMsg(`✓ 슬롯 ${keyModalSlot} 저장됨 (credentials${r.hasClaudeJson ? " + claude.json" : ""})`);
-      setKeyModalCred("");
-      setKeyModalCfg("");
-      loadKeyStatus();
-      // 자동 재적용 묻기
-      if (confirm("키가 저장됐습니다. 지금 모든 사용자에게 재적용할까요?")) {
-        try {
-          const rr = await adminRefreshCredentials();
-          setActionMsg(`✓ 키 재적용 완료 (${rr.copied}명)`);
-          setKeyModalOpen(false);
-        } catch (e) {
-          setKeyModalMsg(`키는 저장됐지만 재적용 실패: ${e.message || e}`);
-        }
-      }
-    } catch (e) {
-      setKeyModalMsg(`✗ 실패: ${e.message || e}`);
-    } finally {
-      setKeyModalBusy(false);
-    }
-  }
 
   async function load() {
     try {
@@ -196,96 +178,31 @@ export default function AdminDashboard({ M }) {
 
   const [busy, setBusy] = useState("");
   const [actionMsg, setActionMsg] = useState("");
-  async function refreshCreds() {
-    if (!confirm("운영자 Claude 로그인 키를 모든 사용자에게 재적용하고 tmux 세션을 리셋합니다. 진행할까요?")) return;
-    setBusy("refresh"); setActionMsg("");
-    try {
-      const r = await adminRefreshCredentials();
-      setActionMsg(`✓ 키 재적용 완료 (${r.copied}명, 스킵 ${r.skipped})`);
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-  async function masterReset() {
-    if (!confirm("⚠️ 완전 초기화: 파일 삭제 → 진행 초기화 → 세션 리셋 → 재로그인 강제\n\n모든 사용자의 상태가 처음으로 돌아갑니다. 진행할까요?")) return;
-    setBusy("master"); setActionMsg("🔄 완전 초기화 진행 중...");
+
+  // 전체 재시작: 모든 사용자 홈 파일 삭제 → user00 크레덴셜 재배포 →
+  // 진행 상황 초기화 → VNC 체인 재기동(xstartup 재실행 = 한글 IME 재설정) →
+  // 브라우저 재로그인 강제. "처음 상태 (프로그램 깔린 채)" 로 만드는 단일 버튼.
+  async function fullRestart() {
+    if (!confirm("⚠️ 전체 재시작: 모든 사용자 파일 삭제 → 크레덴셜 재배포 → 진행 초기화 → VNC 재기동 → 재로그인\n\n학습자 화면이 잠시 끊기고 처음 상태로 돌아갑니다. 진행할까요?")) return;
+    setBusy("full-restart"); setActionMsg("🔄 전체 재시작 진행 중...");
     try {
       setActionMsg("🔄 1/5 — 파일 초기화...");
       await adminCleanAllHomes();
-      setActionMsg("🔄 2/5 — 키 재적용...");
-      await adminRefreshCredentials();
+      setActionMsg("🔄 2/5 — user00 크레덴셜 복사...");
+      // user00 로그인이 살아있으면 그걸 전체에 복사, 실패하면 슬롯 키 fallback
+      try { await adminRefreshFromOperator(); }
+      catch { await adminRefreshCredentials(); }
       setActionMsg("🔄 3/5 — 진행 초기화...");
       await adminResetAll();
-      setActionMsg("🔄 4/5 — 세션 리셋...");
-      await adminResetSessions();
+      setActionMsg("🔄 4/5 — VNC 재기동 (한글 IME 재설정)...");
+      await adminVncRestartAll();
       setActionMsg("🔄 5/5 — 재로그인 강제...");
       await adminForceRelogin();
-      setActionMsg("✓ 완전 초기화 완료 — 모든 사용자가 처음 상태입니다");
+      setActionMsg("✓ 전체 재시작 완료 — 모든 사용자가 처음 상태입니다");
       load();
+      loadVncStatus();
     } catch (e) {
-      setActionMsg(`✗ 완전 초기화 중 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-  async function cleanAllHomes() {
-    if (!confirm("모든 사용자의 홈 폴더를 초기화합니다 (인증만 보존). 진행할까요?")) return;
-    setBusy("clean-homes"); setActionMsg("");
-    try {
-      const r = await adminCleanAllHomes();
-      setActionMsg(`✓ 전체 홈 폴더 초기화 완료 (${r.count || "?"}명)`);
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-  async function forceRelogin() {
-    if (!confirm("모든 브라우저의 로그인을 무효화합니다. 모든 사용자가 다시 로그인해야 합니다. 진행할까요?")) return;
-    setBusy("relogin"); setActionMsg("");
-    try {
-      await adminForceRelogin();
-      setActionMsg("✓ 전체 재로그인 강제 완료 — 사용자들이 새로고침 시 로그인 창이 뜹니다");
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-  async function resetAllSessions() {
-    if (!confirm("모든 사용자의 tmux 셸 세션을 종료합니다. 사용자가 다음 접속 시 새 셸로 시작합니다. 진행할까요?")) return;
-    setBusy("reset"); setActionMsg("");
-    try {
-      const r = await adminResetSessions();
-      setActionMsg(`✓ 세션 리셋 완료 (${r.count}명)`);
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-  async function cleanOneHome(username) {
-    setBusy(`clean:${username}`); setActionMsg("");
-    try {
-      await adminCleanHome(username);
-      setActionMsg(`✓ ${username} 파일 초기화 완료`);
-      load();
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-  async function resetOneSession(username) {
-    setBusy(`reset:${username}`); setActionMsg("");
-    try {
-      await adminResetSessions(username);
-      setActionMsg(`✓ ${username} 세션 종료`);
-      load();
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
-    } finally { setBusy(""); }
-  }
-
-  async function resetAll() {
-    if (!confirm("모든 사용자의 진행 상황과 통제 override를 초기화합니다 (차단 상태는 유지). 진행할까요?")) return;
-    setBusy("reset-all"); setActionMsg("");
-    try {
-      await adminResetAll();
-      setActionMsg("✓ 전체 진행 초기화 완료");
-      load();
-    } catch (e) {
-      setActionMsg(`✗ 실패: ${e.message || e}`);
+      setActionMsg(`✗ 전체 재시작 중 실패: ${e.message || e}`);
     } finally { setBusy(""); }
   }
   async function resetOneUser(u) {
@@ -309,11 +226,55 @@ export default function AdminDashboard({ M }) {
   }
   async function toggleUserDisable(u, currentlyDisabled) {
     const next = !currentlyDisabled;
-    if (next && !confirm(`${u} 의 접속을 차단합니다. 사용자는 ttyd와 슬라이드에 접근할 수 없게 됩니다.`)) return;
+    if (next && !confirm(`${u} 의 접속을 차단합니다. 사용자는 데스크톱과 슬라이드에 접근할 수 없게 됩니다.`)) return;
     setBusy(`disable:${u}`);
     try { await adminDisableUser(u, next); setActionMsg(`✓ ${u} ${next ? "차단됨" : "허용됨"}`); load(); }
     catch (e) { setActionMsg(`✗ 실패: ${e.message || e}`); }
     finally { setBusy(""); }
+  }
+
+  // ─── VNC 복구/상태 ───
+  // novnc-userXX 서비스가 재부팅 뒤 올라오지 않거나 죽는 사례가 반복됨 →
+  // 현장에서 502가 뜨면 이 버튼으로 즉시 스윕.
+  const [vncStatus, setVncStatus] = useState(null); // {total, dead, users:[{user, port, service_active, listening}]}
+  async function loadVncStatus() {
+    try { setVncStatus(await adminVncStatus()); } catch {}
+  }
+  useEffect(() => {
+    loadVncStatus();
+    const id = setInterval(loadVncStatus, 30000); // 30초 폴링 — 죽으면 조기 감지
+    return () => clearInterval(id);
+  }, []);
+  async function recoverVnc() {
+    if (!confirm("죽은 VNC 서비스(novnc-userXX)를 일괄 재기동합니다. 접속 중인 사용자는 잠깐 끊길 수 있습니다. 진행할까요?")) return;
+    setBusy("vnc-recover"); setActionMsg("🔧 VNC 복구 진행 중...");
+    try {
+      const r = await adminVncRecover();
+      const failedMsg = r.failed > 0 ? ` (실패: ${r.failed_users?.join(", ") || r.failed})` : "";
+      setActionMsg(`✓ VNC 복구 — 재기동 ${r.recovered}명${failedMsg}`);
+      loadVncStatus();
+    } catch (e) {
+      setActionMsg(`✗ VNC 복구 실패: ${e.message || e}`);
+    } finally { setBusy(""); }
+  }
+  async function resetVncForUser(username) {
+    if (!confirm(`${username} 의 VNC 세션(xfce + noVNC)을 재기동합니다. 해당 사용자 데스크톱이 잠깐 끊깁니다. 진행할까요?`)) return;
+    setBusy(`vnc-reset:${username}`); setActionMsg(`🖥 ${username} VNC 재기동 중...`);
+    try {
+      const r = await adminVncResetUser(username);
+      const live = r.service_active === "active" && r.listening;
+      setActionMsg(`${live ? "✓" : "⚠️"} ${username} VNC 재기동 — ${r.service_active}, listening=${r.listening}`);
+      loadVncStatus();
+    } catch (e) {
+      setActionMsg(`✗ ${username} VNC 재기동 실패: ${e.message || e}`);
+    } finally { setBusy(""); }
+  }
+  // 특정 사용자의 VNC가 죽어있는지
+  function vncDeadFor(username) {
+    if (!vncStatus?.users) return false;
+    const row = vncStatus.users.find((x) => x.user === username);
+    if (!row) return false;
+    return row.service_active !== "active" || !row.listening;
   }
 
   return (
@@ -383,31 +344,68 @@ export default function AdminDashboard({ M }) {
 
         {/* 운영 액션 */}
         <div style={{ display: "flex", alignItems: "center", gap: 6, paddingRight: 12, borderRight: `1px solid ${M.bd}`, marginRight: 6 }}>
-          <button onClick={() => { setKeyModalOpen(true); setKeyModalMsg(""); }} title="마스터 Claude 로그인 키를 직접 등록/갱신 (운영자가 PC에서 claude /login 후 JSON 붙여넣기)"
-            style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-          >🔐 키 등록 {keyStatus.slots && keyStatus.slots.map(s => (
-              <span key={s.slot} style={{ marginLeft: 4, color: s.hasCredentials ? "#86efac" : "#f87171" }}>
-                {s.slot.toUpperCase()}{s.hasCredentials ? "✓" : "✗"}
+          {/* user00 Claude 로그인 상태 배지 — 풀리면 빨간 경고 + 가이드 모달 */}
+          {(() => {
+            if (!opAuth) return null;
+            const s = opAuth.authStatus;
+            const color = s === "expired" ? "#fca5a5" : s === "expiring" ? "#fbbf24" : s === "ok" ? "#86efac" : "#9ca3af";
+            const bg = s === "expired" ? "#7f1d1d66" : s === "expiring" ? "#78350f66" : s === "ok" ? "#05966944" : M.bg3;
+            const border = s === "expired" ? "#f87171" : s === "expiring" ? "#fbbf24" : s === "ok" ? "#86efac55" : M.bd;
+            const label = s === "expired" ? "로그인 만료"
+              : s === "expiring" ? `만료 임박 (${opAuth.daysLeft}일)`
+              : s === "ok" ? (opAuth.daysLeft != null ? `user00 로그인 ✓ (${opAuth.daysLeft}일 남음)` : "user00 로그인 ✓")
+              : s === "missing" ? "user00 미로그인"
+              : s === "invalid" ? "user00 키 손상"
+              : "user00 상태 확인 중";
+            return (
+              <button
+                onClick={() => setOpAuthGuideOpen(true)}
+                title="user00 의 Claude 로그인 상태 — 클릭하면 재로그인 가이드"
+                style={{ background: bg, border: `1px solid ${border}`, color, borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+              >
+                {s === "expired" ? "⚠️" : s === "expiring" ? "⏰" : s === "ok" ? "👤" : "❓"} {label}
+              </button>
+            );
+          })()}
+          <button onClick={refreshFromOp} disabled={!!busy || opAuth?.authStatus === "expired" || opAuth?.authStatus === "missing"}
+            title="user00 의 Claude 로그인 크리덴셜을 user01~ 에 복사"
+            style={{
+              background: M.bg3, border: `1px solid ${M.bd}`,
+              color: busy === "refresh-op" ? M.tx3 : M.tx2,
+              borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700,
+              cursor: busy ? "wait" : (opAuth?.authStatus === "expired" || opAuth?.authStatus === "missing") ? "not-allowed" : "pointer",
+              opacity: (opAuth?.authStatus === "expired" || opAuth?.authStatus === "missing") ? 0.5 : 1,
+            }}
+          >{busy === "refresh-op" ? "⏳" : "📋"} user00 → 전체 복사</button>
+          {/* VNC 복구: 평소엔 회색, 죽은 서비스 있으면 빨간 경고색 + 개수 뱃지 */}
+          <button
+            onClick={recoverVnc}
+            disabled={!!busy}
+            title={vncStatus ? `novnc-userXX 서비스 중 ${vncStatus.dead}/${vncStatus.total} 죽음 — 누르면 일괄 재기동` : "VNC 서비스 상태 확인 중..."}
+            style={{
+              background: vncStatus?.dead > 0 ? "#7f1d1d66" : M.bg3,
+              border: `1px solid ${vncStatus?.dead > 0 ? "#f87171" : M.bd}`,
+              color: busy === "vnc-recover" ? M.tx3 : (vncStatus?.dead > 0 ? "#fca5a5" : M.tx2),
+              borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700,
+              cursor: busy ? "wait" : "pointer",
+              display: "inline-flex", alignItems: "center", gap: 6,
+            }}
+          >
+            {busy === "vnc-recover" ? "⏳" : "🔧"} VNC 복구
+            {vncStatus && (
+              <span style={{
+                background: vncStatus.dead > 0 ? "#dc2626" : "#05966966",
+                color: "#fff",
+                borderRadius: 10, padding: "1px 7px", fontSize: 11, fontWeight: 800,
+                fontFamily: "var(--workbook-mono)",
+              }}>
+                {vncStatus.total - vncStatus.dead}/{vncStatus.total}
               </span>
-            ))}</button>
-          <button onClick={refreshCreds} disabled={!!busy} title="저장된 마스터 키를 모든 사용자에게 재적용 + tmux 리셋"
-            style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === "refresh" ? M.tx3 : M.tx2, borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
-          >{busy === "refresh" ? "⏳" : "🔑"} 키 재적용</button>
-          <button onClick={resetAllSessions} disabled={!!busy} title="모든 사용자의 tmux 셸 세션 종료"
-            style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === "reset" ? M.tx3 : M.tx2, borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
-          >{busy === "reset" ? "⏳" : "♻"} 전체 세션 리셋</button>
-          <button onClick={resetAll} disabled={!!busy} title="모든 사용자의 진행 상황을 초기화 (슬라이드 0번으로)"
-            style={{ background: "#7f1d1d44", border: `1px solid #f8717155`, color: busy === "reset-all" ? M.tx3 : "#fca5a5", borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
-          >{busy === "reset-all" ? "⏳" : "🗑"} 전체 진행 초기화</button>
-          <button onClick={cleanAllHomes} disabled={!!busy} title="모든 사용자의 홈 폴더 파일 삭제 (인증만 보존)"
-            style={{ background: "#7f1d1d44", border: `1px solid #f8717155`, color: busy === "clean-homes" ? M.tx3 : "#fca5a5", borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
-          >{busy === "clean-homes" ? "⏳" : "🧹"} 전체 파일 초기화</button>
-          <button onClick={forceRelogin} disabled={!!busy} title="모든 브라우저의 로그인을 무효화하여 재로그인 강제"
-            style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === "relogin" ? M.tx3 : M.tx2, borderRadius: 6, padding: "5px 10px", fontSize: 13, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
-          >{busy === "relogin" ? "⏳" : "🔐"} 전체 재로그인</button>
-          <button onClick={masterReset} disabled={!!busy} title="파일+진행+세션+재로그인 한번에 완전 초기화"
-            style={{ background: busy === "master" ? "#7f1d1d44" : "linear-gradient(135deg, #dc2626, #991b1b)", border: "none", color: busy === "master" ? M.tx3 : "#fff", borderRadius: 6, padding: "5px 14px", fontSize: 13, fontWeight: 800, cursor: busy ? "wait" : "pointer", boxShadow: busy === "master" ? "none" : "0 2px 8px #dc262644" }}
-          >{busy === "master" ? "⏳ 초기화 중..." : "💣 완전 초기화"}</button>
+            )}
+          </button>
+          <button onClick={fullRestart} disabled={!!busy} title="전체 재시작: 파일 삭제 → 크레덴셜 재배포 → 진행 초기화 → VNC 재기동(한글 IME 포함) → 재로그인 강제"
+            style={{ background: busy === "full-restart" ? "#7f1d1d44" : "linear-gradient(135deg, #dc2626, #991b1b)", border: "none", color: busy === "full-restart" ? M.tx3 : "#fff", borderRadius: 6, padding: "5px 14px", fontSize: 13, fontWeight: 800, cursor: busy ? "wait" : "pointer", boxShadow: busy === "full-restart" ? "none" : "0 2px 8px #dc262644" }}
+          >{busy === "full-restart" ? "⏳ 재시작 중..." : "🔄 전체 재시작"}</button>
         </div>
 
         {/* 일괄 진행 컨트롤 */}
@@ -507,12 +505,26 @@ export default function AdminDashboard({ M }) {
                     <button onClick={() => nudge(u.username, -1)} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 12px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>← 이전</button>
                     <button onClick={() => nudge(u.username, 1)} style={{ background: M.or, border: "none", color: "#fff", borderRadius: 5, padding: "6px 14px", fontSize: 13, fontWeight: 800, cursor: "pointer" }}>다음 →</button>
                     <button onClick={() => { const v = prompt(`${u.username} 이동할 슬라이드 번호`, String((u.target ?? u.slideIndex) + 1)); if (v != null) { const n = parseInt(v, 10); if (Number.isFinite(n) && n >= 1) jumpTo(u.username, n - 1); } }} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>⇥</button>
-                    <a href={`/admin/view/${u.username}/`} target="_blank" rel="noopener" style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>👁</a>
+                    <a
+                      href={`/${u.username}/desktop/vnc.html?autoconnect=1&view_only=true&resize=remote&path=${u.username}/desktop/websockify`}
+                      target="_blank" rel="noopener"
+                      title={vncDeadFor(u.username) ? `${u.username} VNC 죽음 — 상단 "🔧 VNC 복구" 먼저 눌러주세요` : `${u.username} 데스크톱 화면 관찰 (read-only)`}
+                      style={{
+                        background: vncDeadFor(u.username) ? "#7f1d1d44" : M.bg3,
+                        border: `1px solid ${vncDeadFor(u.username) ? "#f87171" : M.bd}`,
+                        color: vncDeadFor(u.username) ? "#fca5a5" : M.tx2,
+                        borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, textDecoration: "none",
+                      }}
+                    >🖥</a>
+                    <button
+                      onClick={() => resetVncForUser(u.username)}
+                      disabled={busy === `vnc-reset:${u.username}`}
+                      title={`${u.username} VNC 세션 재기동 (xfce + noVNC)`}
+                      style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === `vnc-reset:${u.username}` ? M.tx3 : M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: busy ? "wait" : "pointer" }}
+                    >{busy === `vnc-reset:${u.username}` ? "⏳" : "🖥↻"}</button>
                     <button onClick={() => toggleUserLock(u.username, u.lockOverride)} style={{ background: u.lockOverride === true ? "#7f1d1d33" : u.lockOverride === false ? "#05966933" : M.bg3, border: `1px solid ${u.lockOverride === true ? "#f87171" : u.lockOverride === false ? "#86efac" : M.bd}`, color: u.lockOverride === true ? "#fca5a5" : u.lockOverride === false ? "#86efac" : M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{u.lockOverride === true ? "🔒" : u.lockOverride === false ? "🔓" : "🔁"}</button>
                     <button onClick={() => toggleUserDisable(u.username, u.disabled)} style={{ background: u.disabled ? "#7f1d1d44" : M.bg3, border: `1px solid ${u.disabled ? "#f87171" : M.bd}`, color: u.disabled ? "#fca5a5" : M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>{u.disabled ? "🔌" : "⏻"}</button>
-                    <button onClick={() => cleanOneHome(u.username)} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }} title="파일 초기화">🧹</button>
-                    <button onClick={() => resetOneSession(u.username)} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>♻</button>
-                    <button onClick={() => resetOneUser(u.username)} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>🗑</button>
+                    <button onClick={() => resetOneUser(u.username)} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }} title="진행 초기화">🗑</button>
                   </div>
                 </div>
               );
@@ -616,12 +628,23 @@ export default function AdminDashboard({ M }) {
                         style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer", marginRight: 6 }}
                       >⇥</button>
                       <a
-                        href={`/admin/view/${u.username}/`}
+                        href={`/${u.username}/desktop/vnc.html?autoconnect=1&view_only=true&resize=remote&path=${u.username}/desktop/websockify`}
                         target="_blank"
                         rel="noopener"
-                        title={`${u.username}의 터미널 화면 보기 (read-only)`}
-                        style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "inline-block", marginRight: 4 }}
-                      >👁</a>
+                        title={vncDeadFor(u.username) ? `${u.username} VNC 서비스 죽음 — 상단 "🔧 VNC 복구" 먼저 실행` : `${u.username}의 데스크톱 화면 보기 (read-only)`}
+                        style={{
+                          background: vncDeadFor(u.username) ? "#7f1d1d44" : M.bg3,
+                          border: `1px solid ${vncDeadFor(u.username) ? "#f87171" : M.bd}`,
+                          color: vncDeadFor(u.username) ? "#fca5a5" : M.tx2,
+                          borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer", textDecoration: "none", display: "inline-block", marginRight: 4,
+                        }}
+                      >🖥</a>
+                      <button
+                        onClick={() => resetVncForUser(u.username)}
+                        disabled={busy === `vnc-reset:${u.username}`}
+                        title={`${u.username} VNC 세션 재기동 (vnc → vnc-xfce → novnc)`}
+                        style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === `vnc-reset:${u.username}` ? M.tx3 : M.tx2, borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: busy ? "wait" : "pointer", marginRight: 4 }}
+                      >{busy === `vnc-reset:${u.username}` ? "⏳" : "🖥↻"}</button>
                       <button
                         onClick={() => toggleUserLock(u.username, u.lockOverride)}
                         title={`통제: ${u.lockOverride === true ? "강제 잠금" : u.lockOverride === false ? "강제 풀림" : "글로벌 따름"} (클릭으로 순환)`}
@@ -632,18 +655,6 @@ export default function AdminDashboard({ M }) {
                         title={u.disabled ? `${u.username} 접속 허용` : `${u.username} 접속 차단`}
                         style={{ background: u.disabled ? "#7f1d1d44" : M.bg3, border: `1px solid ${u.disabled ? "#f87171" : M.bd}`, color: u.disabled ? "#fca5a5" : M.tx2, borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: "pointer", marginRight: 4 }}
                       >{u.disabled ? "🔌" : "⏻"}</button>
-                      <button
-                        onClick={() => cleanOneHome(u.username)}
-                        disabled={busy === `clean:${u.username}`}
-                        title={`${u.username}의 파일 초기화`}
-                        style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === `clean:${u.username}` ? M.tx3 : M.tx2, borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: busy ? "wait" : "pointer", marginRight: 4 }}
-                      >🧹</button>
-                      <button
-                        onClick={() => resetOneSession(u.username)}
-                        disabled={busy === `reset:${u.username}`}
-                        title={`${u.username}의 tmux 세션 종료`}
-                        style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: busy === `reset:${u.username}` ? M.tx3 : M.tx2, borderRadius: 5, padding: "4px 9px", fontSize: 12, fontWeight: 700, cursor: busy ? "wait" : "pointer", marginRight: 4 }}
-                      >♻</button>
                       <button
                         onClick={() => resetOneUser(u.username)}
                         disabled={busy === `resetuser:${u.username}`}
@@ -663,6 +674,59 @@ export default function AdminDashboard({ M }) {
           </table>
         )}
       </div>
+
+      {/* user00 재로그인 가이드 모달 */}
+      {opAuthGuideOpen && (
+        <div onClick={() => setOpAuthGuideOpen(false)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
+          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20,
+        }}>
+          <div onClick={(e) => e.stopPropagation()} style={{
+            background: M.bg2, border: `1px solid ${M.bd}`, borderRadius: 12,
+            maxWidth: 620, width: "100%", maxHeight: "90vh", overflow: "auto",
+            padding: 24, color: M.tx,
+          }}>
+            <div style={{ fontSize: 20, fontWeight: 900, color: M.or, marginBottom: 12 }}>
+              👤 user00 Claude 로그인 상태
+            </div>
+            {opAuth && (
+              <div style={{ marginBottom: 16, fontSize: 14, lineHeight: 1.8, background: M.bg3, padding: "12px 16px", borderRadius: 8, border: `1px solid ${M.bd}` }}>
+                <div>상태: <strong style={{ color: opAuth.authStatus === "ok" ? "#86efac" : opAuth.authStatus === "expired" ? "#fca5a5" : opAuth.authStatus === "expiring" ? "#fbbf24" : M.tx2 }}>
+                  {opAuth.authStatus === "ok" ? "✓ 정상" : opAuth.authStatus === "expired" ? "✗ 만료됨 — 재로그인 필요" : opAuth.authStatus === "expiring" ? "⏰ 곧 만료 (1일 이내)" : opAuth.authStatus === "missing" ? "✗ 크리덴셜 없음 — /login 필요" : opAuth.authStatus === "invalid" ? "✗ 파일 손상" : opAuth.authStatus}
+                </strong></div>
+                {opAuth.expiresAt && (
+                  <div>만료일: <span style={{ fontFamily: "var(--workbook-mono)", color: M.tx2 }}>{new Date(opAuth.expiresAt).toLocaleString()}</span>
+                    {opAuth.daysLeft != null && <span style={{ color: M.tx3, marginLeft: 8 }}>({opAuth.daysLeft >= 0 ? `${opAuth.daysLeft}일 남음` : `${-opAuth.daysLeft}일 지남`})</span>}
+                  </div>
+                )}
+                {opAuth.mtime && (
+                  <div>마지막 갱신: <span style={{ fontFamily: "var(--workbook-mono)", color: M.tx2 }}>{new Date(opAuth.mtime).toLocaleString()}</span></div>
+                )}
+              </div>
+            )}
+
+            <div style={{ fontSize: 14, fontWeight: 800, color: M.tx, marginBottom: 10 }}>
+              🔄 재로그인 방법 (로그인이 풀렸거나 만료된 경우)
+            </div>
+            <ol style={{ fontSize: 13, color: M.tx2, lineHeight: 1.9, paddingLeft: 20, marginBottom: 16 }}>
+              <li>user00 의 VNC 데스크톱에 접속
+                <div style={{ marginTop: 4 }}>
+                  <a href="/user00/desktop/" target="_blank" rel="noopener" style={{ background: M.or, color: "#fff", padding: "4px 10px", borderRadius: 4, fontSize: 12, fontWeight: 700, textDecoration: "none" }}>🖥 user00 데스크톱 열기</a>
+                </div>
+              </li>
+              <li>xfce4 데스크톱에서 터미널 열기 (바탕화면 우클릭 → Terminal)</li>
+              <li>터미널에서 <code style={{ background: M.bg3, color: M.or, padding: "1px 6px", borderRadius: 3, fontFamily: "var(--workbook-mono)" }}>claude</code> 실행 → 이어서 <code style={{ background: M.bg3, color: M.or, padding: "1px 6px", borderRadius: 3, fontFamily: "var(--workbook-mono)" }}>/login</code> 입력</li>
+              <li>브라우저 인증 흐름 완료 → 터미널로 돌아와 로그인 완료 메시지 확인</li>
+              <li>이 창을 닫고 상단 <strong>📋 user00 → 전체 복사</strong> 버튼 클릭</li>
+            </ol>
+
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button onClick={loadOpAuth} style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 6, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>🔄 상태 새로고침</button>
+              <button onClick={() => setOpAuthGuideOpen(false)} style={{ background: M.or, border: "none", color: "#fff", borderRadius: 6, padding: "6px 14px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>닫기</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Claude Max 사용량 모달 */}
       {claudeUsageOpen && (
@@ -712,105 +776,6 @@ export default function AdminDashboard({ M }) {
         </div>
       )}
 
-      {/* 마스터 키 등록 모달 */}
-      {keyModalOpen && (
-        <div onClick={() => !keyModalBusy && setKeyModalOpen(false)} style={{
-          position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)",
-          display: "flex", alignItems: "center", justifyContent: "center", zIndex: 9999, padding: 20,
-        }}>
-          <div onClick={(e) => e.stopPropagation()} style={{
-            background: M.bg2, border: `1px solid ${M.bd}`, borderRadius: 14,
-            padding: "24px 28px", maxWidth: 640, width: "100%",
-            maxHeight: "90vh", overflowY: "auto",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", marginBottom: 8 }}>
-              <div style={{ fontSize: 20, fontWeight: 900, color: M.tx, flex: 1 }}>🔐 마스터 키 등록 / 갱신</div>
-              <button onClick={() => !keyModalBusy && setKeyModalOpen(false)} disabled={keyModalBusy}
-                style={{ background: "transparent", border: "none", color: M.tx3, fontSize: 22, cursor: "pointer", padding: 4 }}>✕</button>
-            </div>
-            <div style={{ fontSize: 13, color: M.tx2, lineHeight: 1.7, marginBottom: 16, background: M.bg3, padding: "12px 14px", borderRadius: 8, border: `1px solid ${M.bd}` }}>
-              <strong>1.</strong> 운영자 PC에서 <code style={{ background: M.bg, padding: "1px 6px", borderRadius: 4, color: M.or }}>claude /login</code> 수행<br />
-              <strong>2.</strong> <code style={{ background: M.bg, padding: "1px 6px", borderRadius: 4 }}>~/.claude/.credentials.json</code> 파일 내용을 복사 → 아래 첫 번째 칸에 붙여넣기<br />
-              <strong>3.</strong> (선택) <code style={{ background: M.bg, padding: "1px 6px", borderRadius: 4 }}>~/.claude.json</code> 파일 내용도 복사 → 두 번째 칸에 붙여넣기 (인증 키만 추출됨)<br />
-              <strong>4.</strong> 슬롯 선택 후 저장 → 모든 사용자에게 자동 재적용 옵션
-            </div>
-
-            <div style={{ display: "flex", gap: 10, marginBottom: 14 }}>
-              {["a", "b"].map((s) => {
-                const status = keyStatus.slots?.find(x => x.slot === s);
-                const filled = status?.hasCredentials;
-                return (
-                  <button key={s} onClick={() => setKeyModalSlot(s)}
-                    style={{
-                      flex: 1, padding: "10px",
-                      background: keyModalSlot === s ? M.or : M.bg3,
-                      border: `1px solid ${keyModalSlot === s ? M.or : M.bd}`,
-                      color: keyModalSlot === s ? "#fff" : M.tx2,
-                      borderRadius: 8, fontSize: 14, fontWeight: 800, cursor: "pointer",
-                    }}
-                  >
-                    슬롯 {s.toUpperCase()} {filled && <span style={{ color: keyModalSlot === s ? "#fff" : "#86efac", marginLeft: 6 }}>✓ 등록됨</span>}
-                  </button>
-                );
-              })}
-            </div>
-
-            <div style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: M.tx2, marginBottom: 6 }}>
-                <code>.credentials.json</code> 내용 (필수)
-              </div>
-              <textarea
-                value={keyModalCred}
-                onChange={(e) => setKeyModalCred(e.target.value)}
-                placeholder='{"claudeAiOauth":{"accessToken":"...","refreshToken":"..."}}'
-                disabled={keyModalBusy}
-                style={{
-                  width: "100%", minHeight: 100, padding: "10px 12px",
-                  background: M.bg, color: M.tx, border: `1px solid ${M.bd}`,
-                  borderRadius: 8, fontSize: 12, fontFamily: "var(--workbook-mono)",
-                  resize: "vertical", boxSizing: "border-box",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: M.tx2, marginBottom: 6 }}>
-                <code>.claude.json</code> 내용 (선택 — 인증 관련 키만 추출됨)
-              </div>
-              <textarea
-                value={keyModalCfg}
-                onChange={(e) => setKeyModalCfg(e.target.value)}
-                placeholder='{"userID":"...","oauthAccount":{...}}'
-                disabled={keyModalBusy}
-                style={{
-                  width: "100%", minHeight: 80, padding: "10px 12px",
-                  background: M.bg, color: M.tx, border: `1px solid ${M.bd}`,
-                  borderRadius: 8, fontSize: 12, fontFamily: "var(--workbook-mono)",
-                  resize: "vertical", boxSizing: "border-box",
-                }}
-              />
-            </div>
-
-            {keyModalMsg && (
-              <div style={{
-                padding: "10px 12px", borderRadius: 8, marginBottom: 12, fontSize: 13,
-                background: keyModalMsg.startsWith("✓") ? "#05966944" : "#7f1d1d44",
-                color: keyModalMsg.startsWith("✓") ? "#86efac" : "#fca5a5",
-                border: `1px solid ${keyModalMsg.startsWith("✓") ? "#86efac55" : "#f8717155"}`,
-              }}>{keyModalMsg}</div>
-            )}
-
-            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
-              <button onClick={() => !keyModalBusy && setKeyModalOpen(false)} disabled={keyModalBusy}
-                style={{ background: M.bg3, border: `1px solid ${M.bd}`, color: M.tx2, borderRadius: 8, padding: "10px 18px", fontSize: 14, fontWeight: 700, cursor: keyModalBusy ? "wait" : "pointer" }}
-              >취소</button>
-              <button onClick={handleSaveKey} disabled={keyModalBusy || !keyModalCred.trim()}
-                style={{ background: keyModalBusy || !keyModalCred.trim() ? M.bg3 : M.or, border: "none", color: keyModalBusy || !keyModalCred.trim() ? M.tx3 : "#fff", borderRadius: 8, padding: "10px 22px", fontSize: 14, fontWeight: 800, cursor: keyModalBusy || !keyModalCred.trim() ? "default" : "pointer" }}
-              >{keyModalBusy ? "저장 중..." : "💾 슬롯 " + keyModalSlot.toUpperCase() + "에 저장"}</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

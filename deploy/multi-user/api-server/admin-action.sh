@@ -89,6 +89,8 @@ do_reset_one() {
   [ -f "${H}/.claude/settings.json" ] && cp "${H}/.claude/settings.json" "$TMP_BAK/settings.json"
   [ -f "${H}/.claude.json" ] && cp "${H}/.claude.json" "$TMP_BAK/claude.json"
   [ -f "${H}/.claude/CLAUDE.md" ] && cp "${H}/.claude/CLAUDE.md" "$TMP_BAK/global-claude.md"
+  # VNC 세션 설정 (xstartup, passwd) 보존 — 날리면 vnc-xfce 서비스가 203/EXEC 로 죽음.
+  [ -d "${H}/.vnc" ] && cp -a "${H}/.vnc" "$TMP_BAK/vnc" 2>/dev/null || true
 
   # 홈 안의 모든 파일/폴더 삭제 (숨김 포함)
   rm -rf "${H}"/* "${H}"/.[!.]* "${H}"/..?* 2>/dev/null || true
@@ -99,6 +101,7 @@ do_reset_one() {
   [ -f "$TMP_BAK/settings.json" ] && cp "$TMP_BAK/settings.json" "${H}/.claude/settings.json"
   [ -f "$TMP_BAK/claude.json" ] && cp "$TMP_BAK/claude.json" "${H}/.claude.json"
   [ -f "$TMP_BAK/global-claude.md" ] && cp "$TMP_BAK/global-claude.md" "${H}/.claude/CLAUDE.md"
+  [ -d "$TMP_BAK/vnc" ] && cp -a "$TMP_BAK/vnc" "${H}/.vnc"
   rm -rf "$TMP_BAK"
   : > "${H}/.bash_history"
 
@@ -186,20 +189,160 @@ resolve_user_count() {
 }
 
 case "$ACTION" in
+  vnc-status)
+    # 모든 novnc-userXX 서비스 상태 수집. JSON 한 줄로 출력.
+    # 각 항목: {user, port, service_active, listening}
+    # listening = 68XX 포트 실제 LISTEN 여부 (ss 체크)
+    USERS_JSON=""
+    FIRST=1
+    DEAD=0
+    TOTAL=0
+    for UNIT in $(systemctl list-unit-files 'novnc-user*.service' --no-pager 2>/dev/null | awk '/novnc-user[0-9]+\.service/{print $1}'); do
+      U="${UNIT#novnc-}"; U="${U%.service}"
+      NUM="${U#user}"
+      PORT="68${NUM}"
+      ACTIVE="inactive"
+      if systemctl is-active --quiet "$UNIT"; then ACTIVE="active"; fi
+      LISTEN="false"
+      if ss -tlnH "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; then LISTEN="true"; fi
+      if [ "$ACTIVE" != "active" ] || [ "$LISTEN" != "true" ]; then DEAD=$((DEAD+1)); fi
+      TOTAL=$((TOTAL+1))
+      ITEM="{\"user\":\"$U\",\"port\":$PORT,\"service_active\":\"$ACTIVE\",\"listening\":$LISTEN}"
+      if [ $FIRST -eq 1 ]; then USERS_JSON="$ITEM"; FIRST=0; else USERS_JSON="$USERS_JSON,$ITEM"; fi
+    done
+    echo "{\"ok\":true,\"total\":$TOTAL,\"dead\":$DEAD,\"users\":[$USERS_JSON]}"
+    ;;
+
+  vnc-reset-user)
+    # 단일 사용자의 VNC 세션을 완전 재기동.
+    # 순서: vnc-USER (Xtigervnc) → vnc-xfce-USER (xfce 세션) → novnc-USER (ws 프록시)
+    # 학습자 데스크톱이 멎거나 좀비 창이 남은 경우 admin 이 한 명만 깨끗이 리셋.
+    TARGET="${2:-}"
+    if [ -z "$TARGET" ] || [[ ! "$TARGET" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      echo "ERROR: invalid username" >&2
+      exit 2
+    fi
+    if ! id "$TARGET" >/dev/null 2>&1; then
+      echo "ERROR: user not found: $TARGET" >&2
+      exit 2
+    fi
+    NUM="${TARGET//[^0-9]/}"
+    [ -z "$NUM" ] && NUM=0
+    DISP=$((10#$NUM))
+    PORT="68${NUM}"
+    # X lock 파일은 systemd ExecStartPre 가 치우지만, xfce 세션이 먼저 죽어야
+    # Xtigervnc 도 깔끔히 교체되므로 상위부터 stop
+    systemctl stop "novnc-${TARGET}.service" 2>/dev/null || true
+    systemctl stop "vnc-xfce-${TARGET}.service" 2>/dev/null || true
+    systemctl stop "vnc-${TARGET}.service" 2>/dev/null || true
+    # X lock/socket 잔재 정리 (ExecStartPre 중복이지만 안전장치)
+    rm -f "/tmp/.X${DISP}-lock" "/tmp/.X11-unix/X${DISP}" 2>/dev/null || true
+    systemctl enable "vnc-${TARGET}.service" "vnc-xfce-${TARGET}.service" "novnc-${TARGET}.service" >/dev/null 2>&1 || true
+    systemctl start "vnc-${TARGET}.service" 2>/dev/null || true
+    sleep 1
+    systemctl start "vnc-xfce-${TARGET}.service" 2>/dev/null || true
+    systemctl start "novnc-${TARGET}.service" 2>/dev/null || true
+    sleep 0.5
+    ACTIVE="inactive"; LISTEN="false"
+    systemctl is-active --quiet "novnc-${TARGET}.service" && ACTIVE="active"
+    ss -tlnH "sport = :${PORT}" 2>/dev/null | grep -q LISTEN && LISTEN="true"
+    echo "{\"ok\":true,\"action\":\"vnc-reset-user\",\"user\":\"$TARGET\",\"service_active\":\"$ACTIVE\",\"listening\":$LISTEN}"
+    ;;
+
+  vnc-recover)
+    # 죽은 novnc-userXX만 재기동. vnc-userXX(Xtigervnc)가 먼저 올라와 있어야 하므로
+    # 필요 시 그것도 함께 재기동. enable도 걸어 재부팅 이후 자동 기동 보장.
+    RECOVERED=0
+    FAILED=0
+    FAILED_LIST=""
+    for UNIT in $(systemctl list-unit-files 'novnc-user*.service' --no-pager 2>/dev/null | awk '/novnc-user[0-9]+\.service/{print $1}'); do
+      U="${UNIT#novnc-}"; U="${U%.service}"
+      NUM="${U#user}"
+      PORT="68${NUM}"
+      OK=1
+      if systemctl is-active --quiet "$UNIT" && ss -tlnH "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; then
+        continue
+      fi
+      # 의존 VNC (Xtigervnc) 먼저 보장
+      systemctl is-active --quiet "vnc-${U}.service" || systemctl restart "vnc-${U}.service" 2>/dev/null || OK=0
+      systemctl enable "$UNIT" >/dev/null 2>&1 || true
+      systemctl restart "$UNIT" 2>/dev/null || OK=0
+      sleep 0.3
+      if systemctl is-active --quiet "$UNIT" && ss -tlnH "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; then
+        RECOVERED=$((RECOVERED+1))
+      else
+        FAILED=$((FAILED+1))
+        if [ -z "$FAILED_LIST" ]; then FAILED_LIST="\"$U\""; else FAILED_LIST="$FAILED_LIST,\"$U\""; fi
+        OK=0
+      fi
+    done
+    echo "{\"ok\":true,\"recovered\":$RECOVERED,\"failed\":$FAILED,\"failed_users\":[$FAILED_LIST]}"
+    ;;
+
+  vnc-restart-all)
+    # 모든 사용자의 VNC 체인 재기동 (vnc → vnc-xfce → novnc).
+    # "전체 재시작" 에서 호출 — xstartup 이 다시 실행돼 ibus-hangul gsettings
+    # 재적용 = 한글 IME 가 "처음 상태"로 돌아간다.
+    # vnc-recover 는 "죽은 것만" 살리지만 이건 전부 교체이므로, 접속 중인 사용자는
+    # 한 번 끊기고 재연결된다.
+    RESTARTED=0
+    FAILED=0
+    FAILED_LIST=""
+    for UNIT in $(systemctl list-unit-files 'vnc-user*.service' --no-pager 2>/dev/null | awk '/^vnc-user[0-9]+\.service/{print $1}'); do
+      U="${UNIT#vnc-}"; U="${U%.service}"
+      NUM="${U#user}"
+      DISP=$((10#$NUM))
+      PORT="68${NUM}"
+      # 상위부터 stop (xfce → vnc), 그 다음 bottom-up start
+      systemctl stop "novnc-${U}.service" 2>/dev/null || true
+      systemctl stop "vnc-xfce-${U}.service" 2>/dev/null || true
+      systemctl stop "vnc-${U}.service" 2>/dev/null || true
+      rm -f "/tmp/.X${DISP}-lock" "/tmp/.X11-unix/X${DISP}" 2>/dev/null || true
+      systemctl enable "vnc-${U}.service" "vnc-xfce-${U}.service" "novnc-${U}.service" >/dev/null 2>&1 || true
+      systemctl start "vnc-${U}.service" 2>/dev/null || true
+      sleep 0.4
+      systemctl start "vnc-xfce-${U}.service" 2>/dev/null || true
+      systemctl start "novnc-${U}.service" 2>/dev/null || true
+      sleep 0.3
+      if systemctl is-active --quiet "novnc-${U}.service" \
+         && ss -tlnH "sport = :${PORT}" 2>/dev/null | grep -q LISTEN; then
+        RESTARTED=$((RESTARTED+1))
+      else
+        FAILED=$((FAILED+1))
+        if [ -z "$FAILED_LIST" ]; then FAILED_LIST="\"$U\""; else FAILED_LIST="$FAILED_LIST,\"$U\""; fi
+      fi
+    done
+    echo "{\"ok\":true,\"action\":\"vnc-restart-all\",\"restarted\":$RESTARTED,\"failed\":$FAILED,\"failed_users\":[$FAILED_LIST]}"
+    ;;
+
   refresh-creds)
-    USER_COUNT="$(resolve_user_count "${2:-}")"
+    # arg $2: 숫자면 USER_COUNT(전체 루프), userNN 형태면 단일 유저 모드.
+    SINGLE_USER=""
+    if [ -n "${2:-}" ] && [[ "$2" =~ ^${USER_PREFIX}[0-9]+$ ]]; then
+      SINGLE_USER="$2"
+    else
+      USER_COUNT="$(resolve_user_count "${2:-}")"
+    fi
+
+    if [ -n "$SINGLE_USER" ]; then
+      USER_LIST="$SINGLE_USER"
+    else
+      USER_LIST=""
+      for i in $(seq -w 0 "$USER_COUNT"; echo 99); do
+        USER_LIST="$USER_LIST ${USER_PREFIX}${i}"
+      done
+    fi
 
     COPIED=0
     SKIPPED=0
-    for i in $(seq -w 0 "$USER_COUNT"; echo 99); do
-      USERNAME="${USER_PREFIX}${i}"
+    for USERNAME in $USER_LIST; do
       if ! id "$USERNAME" >/dev/null 2>&1; then
         SKIPPED=$((SKIPPED + 1))
         continue
       fi
 
       # 사용자 번호에 따라 슬롯 결정 → 키 파일 경로
-      USER_NUM=$((10#$i))
+      USER_NUM=$((10#$(echo "$USERNAME" | sed 's/[^0-9]//g' | head -c 3)))
       SLOT="$(slot_for_user_num "$USER_NUM")"
       PATHS="$(slot_paths "$SLOT")"
       SRC_CRED="${PATHS%|*}"
@@ -233,12 +376,12 @@ case "$ACTION" in
       '
 
       # settings.json — Sonnet 4.6 + 사전 권한 + thinking 끔
-      # 기본 출력 토큰 = 8192 (체험용). 실습 페이지에선 `claude-long` 으로 32K 사용.
+      # 기본 출력 토큰 = 32768 (긴 프롬프트 대응). 실습 페이지에선 `claude-long` 으로 32K 사용.
       cat > "$TARGET_SETTINGS" <<'SETTINGS'
 {
   "model": "claude-sonnet-4-6",
   "env": {
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32768",
     "MAX_THINKING_TOKENS": "0",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
   },
@@ -340,7 +483,11 @@ CLAUDEMD
       COPIED=$((COPIED + 1))
     done
 
-    echo "{\"ok\":true,\"action\":\"refresh-creds\",\"copied\":$COPIED,\"skipped\":$SKIPPED}"
+    if [ -n "$SINGLE_USER" ]; then
+      echo "{\"ok\":true,\"action\":\"refresh-creds\",\"user\":\"$SINGLE_USER\",\"copied\":$COPIED,\"skipped\":$SKIPPED}"
+    else
+      echo "{\"ok\":true,\"action\":\"refresh-creds\",\"copied\":$COPIED,\"skipped\":$SKIPPED}"
+    fi
     ;;
 
   reset-sessions)
@@ -382,8 +529,8 @@ CLAUDEMD
 
   set-demo-mode)
     # 발표자(user00) 의 settings.json 을 시연용 ↔ 일반용으로 swap.
-    # 시연용  : Haiku 4.5 + max_output_tokens 1024 → 응답 빠름·짧음 (지루 X)
-    # 일반용  : Sonnet 4.6 + 8192            → 풀 품질
+    # 시연용  : Haiku 4.5 + max_output_tokens 32768 → 모델만 빠른 Haiku, 출력 길이는 풀
+    # 일반용  : Sonnet 4.6 + 32768                    → 풀 품질
     # 다음 claude 호출부터 적용 — kill-session 과 함께 호출되면 즉시 전환.
     TARGET="${2:-}"
     MODE_NAME="${3:-normal}"
@@ -409,7 +556,7 @@ CLAUDEMD
 {
   "model": "claude-haiku-4-5-20251001",
   "env": {
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "1024",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32768",
     "MAX_THINKING_TOKENS": "0",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
   },
@@ -433,7 +580,7 @@ DEMO_SETTINGS
 {
   "model": "claude-sonnet-4-6",
   "env": {
-    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "8192",
+    "CLAUDE_CODE_MAX_OUTPUT_TOKENS": "32768",
     "MAX_THINKING_TOKENS": "0",
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS": "1"
   },
@@ -505,9 +652,9 @@ NORMAL_SETTINGS
     echo "{\"ok\":true,\"action\":\"clear-session\",\"user\":\"$TARGET\"}"
     ;;
 
-  send-keys)
-    # 사용자 tmux 세션에 텍스트를 그대로 입력 (literal). 텍스트는 stdin으로 받음.
-    # Enter는 누르지 않음 — 사용자가 검토 후 직접 누름.
+  paste-text)
+    # 긴 텍스트 자동 붙여넣기 — xclip 으로 CLIPBOARD 세팅 후 터미널 창에 Ctrl+Shift+V.
+    # type 과 달리 한글/특수문자/긴 문자열 즉시 삽입. 사용자 직접 Ctrl+Shift+V 불필요.
     TARGET="${2:-}"
     if [ -z "$TARGET" ] || [[ ! "$TARGET" =~ ^[a-zA-Z0-9_-]+$ ]]; then
       echo "ERROR: invalid username" >&2
@@ -517,17 +664,103 @@ NORMAL_SETTINGS
       echo "ERROR: user not found: $TARGET" >&2
       exit 2
     fi
+    NUM="${TARGET//[^0-9]/}"
+    [ -z "$NUM" ] && { echo "ERROR: display" >&2; exit 2; }
+    DISP=":$((10#$NUM))"
+    [ ! -S "/tmp/.X11-unix/X$((10#$NUM))" ] && { echo "ERROR: X $DISP not running" >&2; exit 3; }
+    TEXT="$(head -c 262144)"
+    [ -z "$TEXT" ] && { echo "ERROR: empty text" >&2; exit 2; }
+
+    # 터미널 창 찾기 / 없으면 자동 실행
+    find_terminal() {
+      local ids
+      ids="$(sudo -u "$TARGET" env DISPLAY="$DISP" xdotool search --onlyvisible --class 'xfce4-terminal|Xfce4-terminal|XTerm|xterm' 2>/dev/null)" || true
+      echo "$ids" | tail -1
+    }
+    WID="$(find_terminal)"
+    if [ -z "$WID" ]; then
+      sudo -u "$TARGET" env DISPLAY="$DISP" /usr/local/bin/wb-terminal --maximize &>/dev/null &
+      for _ in $(seq 1 20); do
+        sleep 0.3
+        WID="$(find_terminal)"
+        [ -n "$WID" ] && break
+      done
+    fi
+    [ -z "$WID" ] && { echo "ERROR: no terminal window" >&2; exit 4; }
+
+    # CLIPBOARD + PRIMARY 양쪽에 텍스트 세팅 후 터미널 활성화 + Ctrl+Shift+V
+    printf '%s' "$TEXT" | sudo -u "$TARGET" env DISPLAY="$DISP" xclip -selection clipboard -in 2>/dev/null || {
+      echo "ERROR: xclip clipboard failed" >&2
+      exit 5
+    }
+    printf '%s' "$TEXT" | sudo -u "$TARGET" env DISPLAY="$DISP" xclip -selection primary -in 2>/dev/null || true
+    sudo -u "$TARGET" env DISPLAY="$DISP" xdotool windowactivate --sync "$WID" 2>/dev/null || true
+    # Ctrl+V 주입 — setup-vnc.sh 의 /etc/xdg/xfce4/terminal/accels.scm 에서
+    # paste 단축키를 Ctrl+V 로 재매핑했으므로 여기도 맞춰야 한다.
+    sudo -u "$TARGET" env DISPLAY="$DISP" xdotool key --window "$WID" --clearmodifiers ctrl+v 2>/dev/null || {
+      echo "ERROR: xdotool paste key failed" >&2
+      exit 6
+    }
+    echo "{\"ok\":true,\"action\":\"paste-text\",\"user\":\"$TARGET\",\"len\":${#TEXT},\"wid\":\"$WID\"}"
+    ;;
+
+  send-keys)
+    # VNC 안의 활성 터미널 창에 유니코드 텍스트를 xdotool 로 직접 type.
+    # 브라우저 IME/paste 우회 — 한글 조합 완료 후 이 경로로 xterm 에 주입.
+    # Enter 는 누르지 않음 — 사용자가 검토 후 직접 누름.
+    TARGET="${2:-}"
+    if [ -z "$TARGET" ] || [[ ! "$TARGET" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+      echo "ERROR: invalid username" >&2
+      exit 2
+    fi
+    if ! id "$TARGET" >/dev/null 2>&1; then
+      echo "ERROR: user not found: $TARGET" >&2
+      exit 2
+    fi
+    # userNN → DISPLAY :NN (user00=:0, user01=:1, …, user99=:99)
+    NUM="${TARGET//[^0-9]/}"
+    if [ -z "$NUM" ]; then
+      echo "ERROR: cannot derive DISPLAY from username" >&2
+      exit 2
+    fi
+    DISP=":$((10#$NUM))"
+    if [ ! -S "/tmp/.X11-unix/X$((10#$NUM))" ]; then
+      echo "ERROR: X display $DISP not running" >&2
+      exit 3
+    fi
     # stdin에서 텍스트 읽기 (최대 32KB)
     TEXT="$(head -c 32768)"
     if [ -z "$TEXT" ]; then
       echo "ERROR: empty text" >&2
       exit 2
     fi
-    sudo -u "$TARGET" /usr/bin/tmux -L "$TMUX_LABEL" send-keys -t "$TARGET" -l -- "$TEXT" 2>/dev/null || {
-      echo "ERROR: send-keys failed" >&2
-      exit 4
+    # xfce4-terminal / xterm 창을 찾아 활성화. 없으면 xfce4-terminal 자동 실행.
+    find_terminal() {
+      local ids
+      ids="$(sudo -u "$TARGET" env DISPLAY="$DISP" xdotool search --onlyvisible --class 'xfce4-terminal|Xfce4-terminal|XTerm|xterm' 2>/dev/null)" || true
+      echo "$ids" | tail -1
     }
-    echo "{\"ok\":true,\"action\":\"send-keys\",\"user\":\"$TARGET\",\"len\":${#TEXT}}"
+    WID="$(find_terminal)"
+    if [ -z "$WID" ]; then
+      # IME 환경 강제 주입 wrapper (sudo가 GTK_IM_MODULE / QT_IM_MODULE 를 날리므로).
+      sudo -u "$TARGET" env DISPLAY="$DISP" /usr/local/bin/wb-terminal --maximize &>/dev/null &
+      for _ in $(seq 1 20); do
+        sleep 0.3
+        WID="$(find_terminal)"
+        [ -n "$WID" ] && break
+      done
+    fi
+    if [ -n "$WID" ]; then
+      sudo -u "$TARGET" env DISPLAY="$DISP" xdotool windowactivate --sync "$WID" 2>/dev/null || true
+      sudo -u "$TARGET" env DISPLAY="$DISP" xdotool type --window "$WID" --clearmodifiers --delay 0 -- "$TEXT" 2>/dev/null || {
+        echo "ERROR: xdotool type failed" >&2
+        exit 4
+      }
+    else
+      echo "ERROR: no terminal window found and could not launch one" >&2
+      exit 4
+    fi
+    echo "{\"ok\":true,\"action\":\"send-keys\",\"user\":\"$TARGET\",\"len\":${#TEXT},\"wid\":\"${WID:-none}\"}"
     ;;
 
   clean-workspace)
@@ -614,12 +847,19 @@ NORMAL_SETTINGS
     fi
     H="/home/${TARGET}"
 
+    # xdg-desktop-portal FUSE 마운트 (.cache/doc) 언마운트 — 그대로 두면
+    # rm / chown 이 Permission denied 로 실패함. VNC 세션이 살아있어도 안전.
+    fusermount3 -u "${H}/.cache/doc" 2>/dev/null || \
+      sudo -u "$TARGET" fusermount3 -u "${H}/.cache/doc" 2>/dev/null || true
+
     TMP_BAK="/tmp/mirae-clean-${TARGET}-$$"
     mkdir -p "$TMP_BAK"
     [ -f "${H}/.claude/.credentials.json" ] && cp "${H}/.claude/.credentials.json" "$TMP_BAK/cred.json"
     [ -f "${H}/.claude/settings.json" ] && cp "${H}/.claude/settings.json" "$TMP_BAK/settings.json"
     [ -f "${H}/.claude.json" ] && cp "${H}/.claude.json" "$TMP_BAK/claude.json"
     [ -f "${H}/.claude/CLAUDE.md" ] && cp "${H}/.claude/CLAUDE.md" "$TMP_BAK/global-claude.md"
+    # VNC 세션 설정 보존
+    [ -d "${H}/.vnc" ] && cp -a "${H}/.vnc" "$TMP_BAK/vnc" 2>/dev/null || true
 
     rm -rf "${H}"/* "${H}"/.[!.]* "${H}"/..?* 2>/dev/null || true
 
@@ -628,6 +868,7 @@ NORMAL_SETTINGS
     [ -f "$TMP_BAK/settings.json" ] && cp "$TMP_BAK/settings.json" "${H}/.claude/settings.json"
     [ -f "$TMP_BAK/claude.json" ] && cp "$TMP_BAK/claude.json" "${H}/.claude.json"
     [ -f "$TMP_BAK/global-claude.md" ] && cp "$TMP_BAK/global-claude.md" "${H}/.claude/CLAUDE.md"
+    [ -d "$TMP_BAK/vnc" ] && cp -a "$TMP_BAK/vnc" "${H}/.vnc"
     rm -rf "$TMP_BAK"
 
     cp /etc/skel/.bashrc "${H}/.bashrc" 2>/dev/null || true
@@ -670,6 +911,11 @@ WBBASHRC
       H="/home/${U}"
       id "$U" >/dev/null 2>&1 || continue
 
+      # xdg-desktop-portal FUSE 마운트(.cache/doc) 언마운트 — VNC 세션이 살아있는
+      # 상태로 clean-all-homes 를 호출하면 chown/rm 이 Permission denied 로 죽음.
+      fusermount3 -u "${H}/.cache/doc" 2>/dev/null || \
+        sudo -u "$U" fusermount3 -u "${H}/.cache/doc" 2>/dev/null || true
+
       # 인증 백업 (임시 파일로 — JSON 특수문자 보존)
       TMP_BAK="/tmp/mirae-clean-${U}-$$"
       mkdir -p "$TMP_BAK"
@@ -677,6 +923,8 @@ WBBASHRC
       [ -f "${H}/.claude/settings.json" ] && cp "${H}/.claude/settings.json" "$TMP_BAK/settings.json"
       [ -f "${H}/.claude.json" ] && cp "${H}/.claude.json" "$TMP_BAK/claude.json"
       [ -f "${H}/.claude/CLAUDE.md" ] && cp "${H}/.claude/CLAUDE.md" "$TMP_BAK/global-claude.md"
+      # VNC 세션 설정 보존
+      [ -d "${H}/.vnc" ] && cp -a "${H}/.vnc" "$TMP_BAK/vnc" 2>/dev/null || true
 
       # 전부 삭제
       rm -rf "${H}"/* "${H}"/.[!.]* "${H}"/..?* 2>/dev/null || true
@@ -687,6 +935,7 @@ WBBASHRC
       [ -f "$TMP_BAK/settings.json" ] && cp "$TMP_BAK/settings.json" "${H}/.claude/settings.json"
       [ -f "$TMP_BAK/claude.json" ] && cp "$TMP_BAK/claude.json" "${H}/.claude.json"
       [ -f "$TMP_BAK/global-claude.md" ] && cp "$TMP_BAK/global-claude.md" "${H}/.claude/CLAUDE.md"
+      [ -d "$TMP_BAK/vnc" ] && cp -a "$TMP_BAK/vnc" "${H}/.vnc"
       rm -rf "$TMP_BAK"
 
       # .bashrc 복구
@@ -734,6 +983,84 @@ WBBASHRC
     save_key_to_slot "$SLOT"
     ;;
 
+  refresh-from-operator)
+    # user00 의 /home/user00/.claude/.credentials.json + /home/user00/.claude.json 을
+    # user01..userNN 에 복사. 운영자가 user00 VNC 에서 `claude /login` 한 뒤 이 액션 호출.
+    # arg $2: 숫자면 전체 루프(USER_COUNT), userNN 이면 단일 유저.
+    SRC_CRED="/home/user00/.claude/.credentials.json"
+    SRC_CFG="/home/user00/.claude.json"
+    if [ ! -f "$SRC_CRED" ]; then
+      echo "ERROR: $SRC_CRED 없음 — user00 에서 claude /login 먼저" >&2
+      exit 3
+    fi
+    # claude /login 이 600 으로 생성하므로 API 서버(workbook-readers)가 읽을 수 있게 ACL 복원
+    setfacl -m g:workbook-readers:r,mask::r "$SRC_CRED" 2>/dev/null || true
+    setfacl -d -m g:workbook-readers:r /home/user00/.claude 2>/dev/null || true
+
+    SINGLE_USER=""
+    if [ -n "${2:-}" ] && [[ "$2" =~ ^${USER_PREFIX}[0-9]+$ ]]; then
+      SINGLE_USER="$2"
+    else
+      USER_COUNT="$(resolve_user_count "${2:-}")"
+    fi
+
+    if [ -n "$SINGLE_USER" ]; then
+      USER_LIST="$SINGLE_USER"
+    else
+      USER_LIST=""
+      for i in $(seq -w 1 "$USER_COUNT"; echo 99); do
+        USER_LIST="$USER_LIST ${USER_PREFIX}${i}"
+      done
+    fi
+
+    COPIED=0
+    SKIPPED=0
+    for USERNAME in $USER_LIST; do
+      if [ "$USERNAME" = "user00" ]; then
+        SKIPPED=$((SKIPPED + 1))
+        continue
+      fi
+      if ! id "$USERNAME" >/dev/null 2>&1; then
+        SKIPPED=$((SKIPPED + 1))
+        continue
+      fi
+      TARGET_DIR="/home/${USERNAME}/.claude"
+      TARGET_CRED="$TARGET_DIR/.credentials.json"
+      TARGET_CFG="/home/${USERNAME}/.claude.json"
+      mkdir -p "$TARGET_DIR"
+      cp "$SRC_CRED" "$TARGET_CRED"
+
+      # .claude.json 는 있으면 머지, 없으면 새로 씀
+      if [ -f "$SRC_CFG" ]; then
+        SRC_CFG="$SRC_CFG" DST_CFG="$TARGET_CFG" /usr/bin/node -e '
+          const fs = require("fs");
+          const src = JSON.parse(fs.readFileSync(process.env.SRC_CFG, "utf8"));
+          let dst = {};
+          try { dst = JSON.parse(fs.readFileSync(process.env.DST_CFG, "utf8")); } catch {}
+          const KEYS = ["userID","oauthAccount","hasCompletedOnboarding","lastOnboardingVersion","subscriptionNoticeCount","claudeCodeFirstTokenDate"];
+          for (const k of KEYS) {
+            if (src[k] !== undefined) dst[k] = src[k];
+          }
+          fs.writeFileSync(process.env.DST_CFG, JSON.stringify(dst, null, 2));
+        '
+      fi
+
+      chown -R "${USERNAME}:${USERNAME}" "$TARGET_DIR"
+      [ -f "$TARGET_CFG" ] && chown "${USERNAME}:${USERNAME}" "$TARGET_CFG"
+      chgrp workbook-readers "$TARGET_DIR" "$TARGET_CRED" "$TARGET_CFG" 2>/dev/null || true
+      chmod 750 "$TARGET_DIR"
+      chmod 640 "$TARGET_CRED"
+      [ -f "$TARGET_CFG" ] && chmod 640 "$TARGET_CFG"
+      COPIED=$((COPIED + 1))
+    done
+
+    if [ -n "$SINGLE_USER" ]; then
+      echo "{\"ok\":true,\"action\":\"refresh-from-operator\",\"user\":\"$SINGLE_USER\",\"copied\":$COPIED,\"skipped\":$SKIPPED}"
+    else
+      echo "{\"ok\":true,\"action\":\"refresh-from-operator\",\"copied\":$COPIED,\"skipped\":$SKIPPED}"
+    fi
+    ;;
+
   claude-usage)
     # 운영자(lsc) 권한으로 `claude /usage` 슬래시 커맨드 실행 후 출력을 stdout으로 그대로.
     # 백엔드(server.js)가 stdout 텍스트를 JSON으로 감싸서 클라이언트에 전달.
@@ -748,7 +1075,7 @@ WBBASHRC
 
   *)
     echo "ERROR: unknown action '$ACTION'" >&2
-    echo "usage: $0 {refresh-creds|reset-sessions|reset-session} [arg]" >&2
+    echo "usage: $0 {refresh-creds|reset-sessions|reset-session|vnc-status|vnc-recover|vnc-reset-user|vnc-restart-all} [arg]" >&2
     exit 2
     ;;
 esac

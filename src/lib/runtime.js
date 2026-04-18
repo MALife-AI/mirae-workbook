@@ -358,17 +358,36 @@ export async function adminTargetAll({ slideIndex, delta } = {}) {
   });
 }
 
-// 어드민: 운영자 키를 모든 사용자에게 재적용 (+ tmux 세션 리셋)
-export async function adminRefreshCredentials(userCount = 20) {
+// 어드민: 운영자 키를 사용자에게 재적용. username 주면 해당 유저만, 없으면 전체.
+export async function adminRefreshCredentials(usernameOrOpts) {
+  const body = typeof usernameOrOpts === "string"
+    ? { username: usernameOrOpts }
+    : { userCount: (usernameOrOpts && usernameOrOpts.userCount) || 20 };
   return apiFetch("/api/admin/refresh-credentials", {
     method: "POST",
-    body: JSON.stringify({ userCount }),
+    body: JSON.stringify(body),
   });
 }
 
 // 어드민: 마스터 키 슬롯 상태 (a/b 각각 채워져 있는지)
 export async function adminKeyStatus() {
   return apiFetch("/api/admin/key-status");
+}
+
+// 어드민: 운영자(user00) Claude 로그인 상태 — 만료 여부 + 남은 일수
+export async function adminOperatorAuthStatus() {
+  return apiFetch("/api/admin/operator-auth-status");
+}
+
+// 어드민: user00 크리덴셜을 다른 사용자에게 복사. username 주면 단일, 없으면 전체.
+export async function adminRefreshFromOperator(usernameOrNothing) {
+  const body = typeof usernameOrNothing === "string"
+    ? { username: usernameOrNothing }
+    : { userCount: 20 };
+  return apiFetch("/api/admin/refresh-from-operator", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
 }
 
 // 어드민: 마스터 키 직접 등록 (운영자 본인 PC에서 claude /login 후 JSON 붙여넣기)
@@ -435,6 +454,29 @@ export async function adminForceRelogin() {
   return apiFetch("/api/admin/force-relogin", { method: "POST" });
 }
 
+// 어드민: VNC 상태 조회 (novnc-userXX 서비스별 active/listening)
+export async function adminVncStatus() {
+  return apiFetch("/api/admin/vnc-status");
+}
+
+// 어드민: 죽은 novnc-userXX 서비스 일괄 복구
+export async function adminVncRecover() {
+  return apiFetch("/api/admin/vnc-recover", { method: "POST" });
+}
+
+// 어드민: 전체 사용자 VNC 체인 일괄 재기동 (xstartup 재실행 → 한글 IME 재설정)
+export async function adminVncRestartAll() {
+  return apiFetch("/api/admin/vnc-restart-all", { method: "POST" });
+}
+
+// 어드민: 개별 사용자 VNC 체인(vnc → vnc-xfce → novnc) 전체 재기동
+export async function adminVncResetUser(username) {
+  return apiFetch("/api/admin/vnc-reset-user", {
+    method: "POST",
+    body: JSON.stringify({ username }),
+  });
+}
+
 export async function adminResetAll() {
   return apiFetch("/api/admin/reset-all", { method: "POST" });
 }
@@ -472,6 +514,21 @@ export async function clearMySession() {
     return await apiFetch("/api/clear-my-session", { method: "POST" });
   } catch {
     return null;
+  }
+}
+
+// 사용자 본인 VNC 터미널에 텍스트 자동 붙여넣기 — xclip + Ctrl+Shift+V.
+// send-to-my-terminal(type) 은 한 글자씩 치기라 느림. 긴 프롬프트는 이걸로.
+// Enter 는 안 누름 — 사용자가 검토 후 직접.
+export async function pasteToMyTerminal(text) {
+  if (isTauri()) return null;
+  try {
+    return await apiFetch("/api/paste-to-my-terminal", {
+      method: "POST",
+      body: JSON.stringify({ text }),
+    });
+  } catch (e) {
+    throw e;
   }
 }
 
